@@ -1,0 +1,25 @@
+{
+  "project": "OutletOwl",
+  "group": "OutletOwl",
+  "repos": [
+    {
+      "name": "OutletOwlServer",
+      "path": ".",
+      "git_path": "manikorimilli/outlet-owl",
+      "stack": "go-api",
+      "tech": "Go 1.25+, net/http, pgx, sqlc, goose, slog; GitHub Actions with PostgreSQL and MailHog service containers",
+      "responsibility": "The Go binary: REST API, JWT sign-in, CSV connector, tagging run, model gateway, digest, seed and evaluation commands; owns the database schema and serves the built UI"
+    },
+    {
+      "name": "OutletOwlWeb",
+      "path": ".",
+      "git_path": "manikorimilli/outlet-owl",
+      "stack": "react-web",
+      "tech": "React, Vite, TypeScript, API types generated from api/openapi.yaml",
+      "responsibility": "The single-page UI for the brand admin and outlet managers, built to static files the Go binary serves",
+      "apps": [
+        {"path": "web", "name": "Dashboard", "for": "the brand admin comparing outlets and the outlet managers replying to reviews"}
+      ]
+    }
+  ]
+}
