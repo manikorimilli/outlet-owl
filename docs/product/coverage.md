@@ -16,7 +16,7 @@ No application code exists yet, so no statement was checked against code; the re
 | REQ-006 | The system tags reviews by theme with the model, sending reviews... | story | Tagging is the new capability every dashboard view reads. | US-01-003 | AC-US-01-003-1, AC-US-01-003-2, AC-US-01-003-7 |
 | REQ-007 | The system takes the themes from a configurable list | criterion-of US-01-003 | It limits which themes a tag can carry. | US-01-003 | AC-US-01-003-2 |
 | REQ-008 | The initial theme list is food, wait time, staff, cleanliness and... | criterion-of US-01-003 | It sets the starting values of the theme list. | US-01-003 | AC-US-01-003-3 |
-| REQ-009 | The system records a sentiment for each tagged review | criterion-of US-01-003 | Sentiment is one more field of the same tagging call. | US-01-003 | AC-US-01-003-4 |
+| REQ-009 | The system records a sentiment for each tagged review | criterion-of US-01-003 | Sentiment is one more field of the same tagging call. | US-01-003, US-02-004 | AC-US-01-003-4, AC-US-02-004-6 |
 | REQ-010 | The system flags a review as urgent when it concerns food safety,... | criterion-of US-01-003 | The urgent flag is one more field of the same tagging call. | US-01-003 | AC-US-01-003-5 |
 | REQ-011 | The system stores each successful tag result and never sends an... | criterion-of US-01-003 | Tagging once is a rule on the tagging run, not a user action. | US-01-003 | AC-US-01-003-6 |
 | REQ-012 | The model's batch tagging output identifies each result by its... | criterion-of US-01-004 | The ID in the output is how alignment is guaranteed. | US-01-004 | AC-US-01-004-1 |
@@ -76,5 +76,5 @@ Inferred persona: "Developer (group 02 operator)" carries US-02-001 to US-02-006
 
 ## Counts
 
-stories-coverage: 49 REQ from docs/product/PRD.md (0 withdrawn), 49 covered, 0 out of scope, 0 gaps, 19 stories, 86 AC, 0 orphans, 0 problems
+stories-coverage: 49 REQ from docs/product/PRD.md (0 withdrawn), 49 covered, 0 out of scope, 0 gaps, 19 stories, 87 AC, 0 orphans, 0 problems
 Verdict: covered

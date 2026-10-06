@@ -3,7 +3,19 @@
 - Task: none
 - Author: unattributed, 2026-10-06
 - Status: Reviewed (critic review 2026-10-06, all 15 findings fixed; Approved needs the drawn diagram and the product owner's sign-off)
-- Version: v1 (new; review fixes applied 2026-10-06)
+- Version: v2 (base: v1, commit a201e75)
+
+## Changes from v1
+
+Why this revision: the product owner decided on 2026-10-06 that each urgent flag carries its reasons, that the evaluation also reports sentiment accuracy with no pass mark, and what the 100-review evaluation set holds (recorded in docs/genai/review-classification-and-replies-solution.md; data model v2 and API 1.1.0 already carry the reasons).
+
+| Section | Change | Driven by | Impact |
+| --- | --- | --- | --- |
+| 2. Users and flows (Flow C) | The digest lists each urgent review with its reasons | AC-US-01-009-4 (revised) | none beyond the backlog |
+| 3. Architecture (tagging worker, eval command) | Result lines carry urgent reasons; the eval set's source and makeup and the sentiment report are stated | product owner decisions, 2026-10-06 | low-level-design for the tagging worker and the eval command |
+| 4. Data | The review tag result row names urgent reasons | data model v2 | none (data model already revised) |
+| 7. Failure modes (eval command) | Sentiment joins the report-only measures | AC-US-02-004-6 (new) | none |
+| 17. Open questions | Who labels the 100 evaluation reviews, and from which source: closed | product owner decision, 2026-10-06 | none |
 - PRD: docs/product/PRD.md (backlog: docs/product/backlog.md, register: docs/product/questions.md)
 - ADRs: docs/architecture/decisions.md
 - Tenets: docs/architecture/tenets.md
@@ -73,7 +85,7 @@ Flow B: reply (outlet manager)
 Flow C: weekly digest (brand admin)
 
 1. The admin presses "Generate digest" with a request id (US-01-009).
-2. The server computes, in the brand timezone, the movers for the latest complete Monday to Sunday week against the week before, lists that week's urgent reviews, names the outlet and theme that moved most, and counts the reviews dated in those two weeks that are still untagged (Q-004, Q-005). When that count is above zero, the digest's first line says so ("12 reviews in these weeks are not tagged yet; movers and urgent reviews may be incomplete").
+2. The server computes, in the brand timezone, the movers for the latest complete Monday to Sunday week against the week before, lists that week's urgent reviews with their reasons, names the outlet and theme that moved most, and counts the reviews dated in those two weeks that are still untagged (Q-004, Q-005). When that count is above zero, the digest's first line says so ("12 reviews in these weeks are not tagged yet; movers and urgent reviews may be incomplete").
 3. The server records the digest under its request id with status "sending" before calling SMTP, sends one email to the brand admin through MailHog, then marks it "sent". A repeated request with the same id returns the recorded digest and never sends again (Q-006).
 
 Flow D: seed (developer)
@@ -131,11 +143,11 @@ API server (backend; owner: the team). The Go HTTP server (ADR-0001) with the ro
 
 Model gateway (backend; owner: the team). One Go function every model call passes, for tagging, drafting, evaluation and tone checks (REQ-030 to REQ-032, AC-US-02-001-1). Before a live call it reads the running total and refuses when it is above USD 8 (Q-015); it then reserves a cost row priced at the request's worst case (its input plus max_tokens) and settles that row with `usage.cost` from the response, so a call that times out or is cancelled stays counted at its reserved price. It sets max_tokens to at most 1000 and sends the request to OpenRouter with the model identifier anthropic/claude-haiku-4.5 (Q-016). At server start it reconciles the running total: it reads the key's usage from OpenRouter's key endpoint and keeps the larger of that figure and the local sum, so a lost local row can never lower the total. It has three modes, chosen only by the operator setting: live, record (live and save the response) and replay (answer from saved responses, never building an HTTP client; a missing recording is an error). Prompts are read from versioned files embedded in the binary (Q-011). Timeouts and retries are in section 8.
 
-Tagging worker (worker; owner: the team). One long-lived goroutine in the server (ADR-0006), fed by a signal channel that holds at most one pending signal, so signals during a pass collapse into one more pass and none is lost. On a signal, if the operator setting TAGGING_ENABLED is on, it takes the PostgreSQL advisory lock on a dedicated connection it holds for the whole pass (the lock only keeps the seed and eval commands from tagging at the same time), snapshots the untagged review ids, and makes one pass over the snapshot in batches of 20, in id order, with the current tagging prompt version. The prompt sends each review's integer id and text, cut to 2,000 characters; the model answers one compact line per review (id, theme codes, sentiment, urgent flag), so an answer cut off by the 1000-token cap still yields every complete line (conflict 1). A line is accepted only if its id belongs to the batch and appears exactly once in the answer, its themes are in the configured list and its fields are valid; an id seen twice counts as missing and is retried alone. Valid results are stored by review id with the prompt version (tenet 4); missing and invalid ids are retried as a smaller batch at most 2 times; ids still failing are dropped from this pass. A 402 or a budget refusal ends the pass. After releasing the lock the worker checks for reviews newer than the snapshot and runs one more pass for those only, so a poison review is tried once per import or restart, never in a loop.
+Tagging worker (worker; owner: the team). One long-lived goroutine in the server (ADR-0006), fed by a signal channel that holds at most one pending signal, so signals during a pass collapse into one more pass and none is lost. On a signal, if the operator setting TAGGING_ENABLED is on, it takes the PostgreSQL advisory lock on a dedicated connection it holds for the whole pass (the lock only keeps the seed and eval commands from tagging at the same time), snapshots the untagged review ids, and makes one pass over the snapshot in batches of 20, in id order, with the current tagging prompt version. The prompt sends each review's integer id and text, cut to 2,000 characters; the model answers one compact line per review (id, theme codes, sentiment, urgent reasons; a review is urgent when it has any reason), so an answer cut off by the 1000-token cap still yields every complete line (conflict 1). A line is accepted only if its id belongs to the batch and appears exactly once in the answer, its themes are in the configured list and its fields are valid; an id seen twice counts as missing and is retried alone. Valid results are stored by review id with the prompt version (tenet 4); missing and invalid ids are retried as a smaller batch at most 2 times; ids still failing are dropped from this pass. A 402 or a budget refusal ends the pass. After releasing the lock the worker checks for reviews newer than the snapshot and runs one more pass for those only, so a poison review is tried once per import or restart, never in a loop.
 
 Digest builder and mailer (backend; owner: the team). Computes the movers (outlet and theme pairs ranked by the change in the number of negative reviews, latest complete Monday to Sunday week against the week before, weeks in the configured brand timezone, default Asia/Kolkata) and the week's urgent reviews from PostgreSQL, using an injected clock so tests pin "now". It counts untagged reviews in the two weeks and states them on the first line, claims the digest row before sending, renders a plain-text and an escaped HTML body, and sends one email over SMTP to MailHog addressed to the brand admin (Q-004 to Q-006).
 
-Seed, eval and tone-check commands (backend; owner: the team). Commands built from the same Go module, each taking the gateway mode from the operator setting and an injected clock. The seed command is described in Flow D. The eval command reads the 100 labelled reviews from testdata/eval/, runs them through the same gateway, parser and validator as the tagging worker, and never writes review tag results; it reports per-theme precision and recall, urgent recall and precision and the missed urgent reviews, with "gate not set" until a pass mark exists (Q-017, Q-018); its recordings are replayed in CI. The tone-check command drafts 30 replies and writes them as a Markdown file for a person to score against the rubric (Q-019); no spreadsheet format, so no formula injection.
+Seed, eval and tone-check commands (backend; owner: the team). Commands built from the same Go module, each taking the gateway mode from the operator setting and an injected clock. The seed command is described in Flow D. The eval command reads the 100 labelled reviews from testdata/eval/ (real public reviews with names removed, collected and labelled by the product owner: at least 20 urgent, at least 5 per reason, at least 20 in Hindi or Hinglish), runs them through the same gateway, parser and validator as the tagging worker, and never writes review tag results; it reports per-theme precision and recall, urgent recall and precision, the missed urgent reviews, and sentiment accuracy with precision and recall for negative (report only), with "gate not set" until a pass mark exists (Q-017, Q-018); its recordings are replayed in CI. The tone-check command drafts 30 replies and writes them as a Markdown file for a person to score against the rubric (Q-019); no spreadsheet format, so no formula injection.
 
 PostgreSQL (data). The one store (PRD section 6, ADR-0003), with the budget record in its own schema (section 4). MailHog (infrastructure). The local mail catcher. OpenRouter (external). The model provider (section 6).
 
@@ -154,7 +166,7 @@ Store: PostgreSQL in Docker (PRD section 6), accessed with pgx and sqlc, schema 
 | user | name, email (unique), role, assigned outlet, bcrypt hash; upserted from the users file at start | yes: name, email | 6 in the demo | kept while in the users file |
 | outlet | name, unique ignoring case; the CSV's outlet column matches it | no | 5 in the demo | kept |
 | review | integer id, outlet, source, date (a calendar date), rating, text, reviewer name, import; unique on outlet, source, date, reviewer name and a hash of the text | yes: reviewer name, free text may contain personal data | 1,500 seed; about 11.5 per outlet per week at the seed's rate | kept |
-| review tag result | review (unique), theme codes, sentiment, urgent flag, prompt version | no | one per tagged review | kept |
+| review tag result | review (unique), theme codes, sentiment, urgent flag, urgent reasons (food_safety, harassment, legal_threat; urgent exactly when any is present), prompt version | no | one per tagged review | kept |
 | reply | review (unique), status (drafting, draft, replied), draft text, prompt version, edited text, replied by, replied at | no (text may quote the reviewer) | at most one per review | kept |
 | digest | request id (unique), status (sending, sent, failed), week, recipient, untagged count, sent time, body | yes: may quote reviews | one per generated digest | kept |
 | import | request id (unique), file name, accepted, skipped-duplicate and rejected counts, time | no | one per upload | kept |
@@ -250,7 +262,7 @@ Receives the digest over SMTP, locally and as a CI service container (conflict 2
 | Digest builder and mailer | Crash after the email is sent and before the row is marked sent | A digest row left in "sending" | A repeat of the same request returns the "sending" row and sends nothing; a new request sends a new digest | Accepted: at most one extra email in a local catcher, only if the admin starts a new request |
 | PostgreSQL | Container stopped | Connection errors in the log; health endpoint | Every screen errors | Start the container; no data loss for committed rows |
 | Seed command | Replay with recordings that do not match (prompt version changed) | Replay error naming the key | Seed fails before tagging finishes | Run once in record mode, deliberately (about USD 0.57) |
-| Eval command | Urgent recall below 90% | Report shows the urgent gate failed and lists missed urgent reviews | Run exits with failure; theme accuracy (Q-018) and tone (Q-019) are report only and never fail it | Fix the tagging prompt, re-run, record a new replay |
+| Eval command | Urgent recall below 90% | Report shows the urgent gate failed and lists missed urgent reviews | Run exits with failure; theme accuracy (Q-018), sentiment accuracy and tone (Q-019) are report only and never fail it | Fix the tagging prompt, re-run, record a new replay |
 | CI | A test tries to reach OpenRouter | No key, openrouter.ai mapped to 0.0.0.0; replay error | Red build | Add the recording |
 
 ## 8. Scaling and limits
@@ -582,8 +594,12 @@ Addressed from "Not said" in v1: demo shelf life (Flow D step 3, re-seed in repl
 | assumption: the MailHog image still runs on Docker 29 | developer | phase 0 |
 | The brand timezone defaults to Asia/Kolkata (configurable); review dates are calendar dates | product owner | phase 3 |
 | The users file format (fields, file name, where it lives) | developer, in `low-level-design` | phase 1 |
-| Who labels the 100 evaluation reviews, and from which source; labels made from the seed generator would measure the generator | product owner | phase 7 |
+| Who labels the 100 evaluation reviews, and from which source: closed 2026-10-06, real public reviews with names removed, collected and labelled by the product owner (at least 20 urgent, at least 5 per reason, at least 20 in Hindi or Hinglish) | product owner | closed |
 | No path deletes an outlet, an import or a wrong review; the PRD has none | product owner, through `prd` if wanted | after the MVP |
 | Evaluation pass marks: settled 2026-10-06 (urgent recall 90%, Q-017; theme accuracy and tone report only, Q-018 and Q-019) | product owner | closed |
 | The tagging prompt's exact line format and theme codes | developer, in `low-level-design` and `prompt-registry` | phase 3 |
 | Backlog wording to amend after this HLD: AC-US-01-002-1 ("each valid row becomes one stored review") gains "rows already imported are counted, not stored" | product owner, through `backlog` | phase 3 |
+
+## Revision history
+
+- v1 (2026-10-06, commit a201e75): first version, with the critic's review fixes applied.

@@ -27,7 +27,7 @@ MVP: EP-01 to EP-07. Stretch, not in the MVP: EP-08.
 | US-02-001 | EP-06 | Route every model call through one budgeted gateway | Developer | Must | TBD | REQ-030, REQ-031, REQ-032 | none | none |
 | US-02-002 | EP-06 | Keep model prompts under version | Developer | Must | TBD | REQ-033 | US-02-001 | none |
 | US-02-003 | EP-06 | Run tests on recorded model responses | Developer | Must | TBD | REQ-034, REQ-035 | US-02-001 | none |
-| US-02-004 | EP-06 | Evaluate theme and urgent-flag accuracy on 100 labelled reviews | Developer | Must | TBD | REQ-036, REQ-037, REQ-038 | US-01-003, US-02-003 | none |
+| US-02-004 | EP-06 | Evaluate theme and urgent-flag accuracy on 100 labelled reviews | Developer | Must | TBD | REQ-009, REQ-036, REQ-037, REQ-038 | US-01-003, US-02-003 | none |
 | US-02-005 | EP-06 | Check the tone of 30 reply drafts | Developer | Must | TBD | REQ-039 | US-00-002 | none |
 | US-02-006 | EP-07 | Seed the demo with 5 outlets and 1,500 reviews | Developer | Must | TBD | REQ-040, REQ-041, REQ-042, REQ-043 | US-01-001 | none |
 | US-01-010 | EP-08 | Show each tenant's own colours (stretch) | Brand admin | Could | TBD | REQ-049 | US-01-005 | none |
@@ -161,7 +161,7 @@ Covers: REQ-006, REQ-007, REQ-008, REQ-009, REQ-010, REQ-011   Judgement: merged
   Covers: REQ-008
 - AC-US-01-003-4. Given a tagged review, when it is stored, then it carries one sentiment label: positive, neutral or negative (Q-013, confirmed 2026-10-06).
   Covers: REQ-009
-- AC-US-01-003-5. Given recorded reviews that mention food safety, harassment or a legal threat, when they are tagged, then each is flagged urgent, and a review mentioning none of these is not.
+- AC-US-01-003-5. Given recorded reviews that mention food safety, harassment or a legal threat, when they are tagged, then each is flagged urgent with each reason it shows (food_safety, harassment, legal_threat; several allowed, none repeated), and a review mentioning none of these is not flagged and has no reason (product owner, 2026-10-06).
   Covers: REQ-010
 - AC-US-01-003-6. Given a review already tagged, when tagging runs again, then that review is not sent to the model and its stored tags, with the prompt version that produced them, are unchanged (Q-011, confirmed 2026-10-06).
   Covers: REQ-011
@@ -581,7 +581,7 @@ Covers: REQ-025, REQ-026, REQ-027, REQ-028, REQ-029   Judgement: merged from REQ
   Covers: REQ-025
 - AC-US-01-009-3. Given the digest week, when the digest is generated, then its first line names the outlet and the theme that moved most, with both weeks' counts.
   Covers: REQ-027
-- AC-US-01-009-4. Given urgent reviews dated in the digest week, when the digest is generated, then it lists each with outlet, date and text, and lists none from other weeks.
+- AC-US-01-009-4. Given urgent reviews dated in the digest week, when the digest is generated, then it lists each with its urgent reasons, outlet, date and text, and lists none from other weeks (urgent reasons: product owner, 2026-10-06).
   Covers: REQ-026
 - AC-US-01-009-5. Given MailHog running locally, when the digest is generated, then one email reaches the MailHog inbox addressed to the brand admin, and no other mail server is contacted (Q-006, confirmed 2026-10-06).
   Covers: REQ-029
@@ -739,7 +739,7 @@ Covers: REQ-034, REQ-035   Judgement: merged from REQ-034 (story) and REQ-035 (c
 
 Epic: EP-06   Priority: Must   Points: TBD (estimate)
 Persona: Developer (inferred:, group 02 operator)   Ticket: unassigned
-Covers: REQ-036, REQ-037, REQ-038   Judgement: merged from REQ-036, REQ-037 (story) and REQ-038 (criterion)
+Covers: REQ-009, REQ-036, REQ-037, REQ-038   Judgement: merged from REQ-036, REQ-037 (story) and REQ-038 (criterion); REQ-009 added for the sentiment report (product owner, 2026-10-06)
 
 **Narrative.** As the developer, I want an evaluation on 100 labelled reviews, so that I know how often themes and urgent flags are right before trusting the tags.
 
@@ -749,13 +749,14 @@ Covers: REQ-036, REQ-037, REQ-038   Judgement: merged from REQ-036, REQ-037 (sto
 - REQ-036: "The project includes an evaluation that measures theme accuracy on 100 labelled reviews."
 - REQ-037: "The evaluation measures urgent-flag accuracy on the same 100 labelled reviews."
 - REQ-038: "The classification evaluation passes or fails on urgent recall."
+- REQ-009: "The system records a sentiment for each tagged review." (measured here, report only)
 
 **Preconditions.**
 - Tagging works (US-01-003); recording and replay work (US-02-003).
 
 **Acceptance criteria.**
 
-- AC-US-02-004-1. Given 100 reviews labelled with themes and an urgent flag, when the evaluation runs, then it reports theme precision and recall per theme (Q-018, Q-021 confirmed 2026-10-06).
+- AC-US-02-004-1. Given 100 real public reviews with reviewer names removed, collected and labelled by the product owner with themes, one sentiment and urgent reasons, at least 20 of them urgent (at least 5 per reason) and at least 20 in Hindi or Hinglish (product owner, 2026-10-06), when the evaluation runs, then it reports theme precision and recall per theme (Q-018, Q-021 confirmed 2026-10-06).
   Covers: REQ-036
 - AC-US-02-004-2. Given the same 100 reviews, when the evaluation runs, then it reports urgent recall and urgent precision, and lists each urgent review the model missed.
   Covers: REQ-037
@@ -765,6 +766,8 @@ Covers: REQ-036, REQ-037, REQ-038   Judgement: merged from REQ-036, REQ-037 (sto
   Covers: REQ-038
 - AC-US-02-004-5. Given a live evaluation run, when it ends, then its report names the tagging prompt version and the model, and its cost is in the gateway's running total.
   Covers: REQ-036, REQ-037
+- AC-US-02-004-6. Given the same 100 reviews, when the evaluation runs, then it reports sentiment accuracy, and precision and recall for negative, with no pass or fail verdict (product owner, 2026-10-06: report only; movers and the digest count negative reviews).
+  Covers: REQ-009
 
 **Not in this story.**
 - Any pass mark for theme accuracy (Q-018, decided by you on 2026-10-06: report only, no pass mark).
