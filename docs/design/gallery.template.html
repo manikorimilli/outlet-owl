@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>{{PRODUCT}}: design bundle</title>
+<!--
+  docs/design/index.html, rendered by bundle.py gallery from docs/design/design.json with
+  this repository template (round 2 restyle, Night launch):
+    python3 <screen-design skill>/scripts/bundle.py gallery --design docs/design --template docs/design/gallery.template.html
+  Do not edit the output: change design.json or this template and render again.
+  Colours come from tokens.css next to this file; this template names none.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Noto+Sans+Devanagari:wght@400;600&amp;display=swap">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { margin: 0; background: var(--color-bg); color: var(--color-text);
+    font-family: var(--font-body); font-size: var(--text-body); line-height: var(--leading-body); overflow-x: clip; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { font-family: var(--font-display); line-height: 1.15; text-wrap: balance; margin: 0 0 var(--space-2); letter-spacing: var(--tracking-title); }
+  h1 { font-size: var(--text-hero); font-weight: var(--weight-stat); }
+  h2 { font-size: var(--text-display); font-weight: var(--weight-title); margin-top: var(--space-6); }
+  h3 { font-size: var(--text-title); font-weight: var(--weight-title); }
+  a { color: var(--color-link); text-underline-offset: 3px; }
+  p { max-width: 70ch; }
+  .skip { position: absolute; inset-inline-start: var(--space-3); top: -100px; }
+  .skip:focus { top: var(--space-3); background: var(--color-surface-raised); padding: var(--space-2) var(--space-3); border-radius: var(--radius-pill); }
+  /* Navy hero with light streaks, like the sign-in page. */
+  .hero { position: relative; overflow: hidden; isolation: isolate; background: var(--gradient-navy); color: var(--color-on-navy);
+    padding: var(--space-7) var(--space-3) calc(var(--space-7) + var(--space-4)); }
+  .hero::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--glow-hero); }
+  .hero a { color: var(--color-on-navy-muted); }
+  .hero :focus-visible { outline-color: var(--color-focus-on-navy); }
+  .hero .lede { color: var(--color-on-navy-muted); font-size: var(--text-title); }
+  .hero h1 span { background: var(--gradient-highlight-dark); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .streaks { position: absolute; inset-inline: 0; inset-block-end: 0; inline-size: 100%; block-size: 8rem; z-index: -1; pointer-events: none; }
+  .sk { fill: none; stroke-linecap: round; }
+  .sk1 { stroke: var(--color-streak-1); stroke-width: 5; filter: drop-shadow(0 0 10px var(--color-streak-1)); }
+  .sk2 { stroke: var(--color-streak-2); stroke-width: 2; filter: drop-shadow(0 0 8px var(--color-streak-2)); }
+  .sk3 { stroke: var(--color-streak-3); stroke-width: 12; opacity: .5; filter: drop-shadow(0 0 16px var(--color-streak-3)); }
+  .wrap { max-width: 1280px; margin-inline: auto; }
+  @media (min-width: 768px) { .hero { padding-inline: var(--space-5); } .body { padding-inline: var(--space-5); } }
+  .body { padding: var(--space-5) var(--space-3) var(--space-7); position: relative; }
+  .lede, .key { color: var(--color-text-muted); }
+  .key { font-size: var(--text-label); font-weight: var(--weight-label); }
+  .layout { display: grid; gap: var(--space-5); grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 1100px) { .layout { grid-template-columns: 20rem minmax(0, 1fr); } }
+  .side { align-self: start; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-overlay);
+    box-shadow: var(--elevation-1); padding: var(--space-4); }
+  .side h2 { margin-top: 0; font-size: var(--text-title); }
+  @media (min-width: 1100px) { .side { position: sticky; top: var(--space-3); } }
+  .side ul { list-style: none; padding-inline-start: var(--space-3); margin: 0; }
+  .side > div > ul { padding-inline-start: 0; }
+  .side li { margin-block: var(--space-1); }
+  main > h2:first-child { margin-top: 0; }
+  dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--space-2) var(--space-3); margin: 0; }
+  dt { color: var(--color-text-muted); font-weight: var(--weight-label); }
+  dd { margin: 0; }
+  .cards { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); }
+  .card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-container); box-shadow: var(--elevation-1);
+    padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-2);
+    transition: transform var(--duration-base) var(--ease-standard), box-shadow var(--duration-base) var(--ease-standard); }
+  .card:hover { transform: var(--lift); box-shadow: var(--elevation-2); }
+  .card p { margin: 0; }
+  .card h3 a { color: var(--color-text); text-decoration: none; }
+  .card h3 a:hover { color: var(--color-accent); }
+  .states a { display: inline-block; margin: 0 var(--space-1) var(--space-1) 0; padding: 2px var(--space-half); border-radius: var(--radius-pill);
+    background: var(--color-bg-subtle); color: var(--color-text); font-size: var(--text-label); font-weight: var(--weight-medium); text-decoration: none; }
+  .states a:hover { background: var(--color-accent); color: var(--color-on-accent); }
+  .serves, .notes { color: var(--color-text-muted); font-size: var(--text-label); }
+  .raised { margin-top: var(--space-2); padding: var(--space-half) var(--space-3); background: var(--color-warning-subtle); border-radius: var(--radius-control); font-size: var(--text-label); }
+  .raised p { font-weight: var(--weight-label); color: var(--color-warning); }
+  .raised ul { margin: var(--space-1) 0 0; padding-inline-start: var(--space-3); }
+  .panel { background: var(--color-bg-subtle); border-radius: var(--radius-container); padding: var(--space-3); margin-top: var(--space-4); }
+  .panel h3 { font-size: var(--text-body); }
+  main > ul:not(.cards), main > dl, main > p, main > div:not(.cards) { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-container);
+    box-shadow: var(--elevation-1); padding: var(--space-4) var(--space-4) var(--space-4) var(--space-6); max-width: none; }
+  main > dl, main > div:not(.cards) { padding-inline-start: var(--space-4); }
+  main > p.lede { background: none; border: 0; box-shadow: none; padding: 0; margin-top: var(--space-4); }
+  main li { margin-block: var(--space-1); }
+  @media (prefers-reduced-motion: reduce) { .card:hover { transform: none; } }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="hero">
+<div class="wrap">
+  <h1><span>{{PRODUCT}}</span> design bundle</h1>
+  <p class="lede">Design bundle v{{VERSION}}. {{SUMMARY}}</p>
+  <p>{{SYSTEM_LINK}}</p>
+</div>
+<svg class="streaks" viewBox="0 0 1440 200" preserveAspectRatio="none" aria-hidden="true">
+  <path class="sk sk3" d="M-40 170 C 320 100, 700 210, 1040 140 S 1400 80, 1500 90"/>
+  <path class="sk sk1" d="M-40 160 C 330 95, 710 195, 1050 130 S 1400 70, 1500 80"/>
+  <path class="sk sk2" d="M-40 152 C 340 88, 720 185, 1060 124 S 1410 62, 1500 70"/>
+</svg>
+</header>
+<div class="body"><div class="wrap">
+<div class="layout">
+  <aside class="side" aria-label="Information architecture">
+    <h2>Sitemap</h2>
+    <div>{{SITEMAP}}</div>
+    <div class="panel">
+      <h3>Navigation</h3>
+      {{NAVIGATION}}
+    </div>
+  </aside>
+  <main id="main">
+    <h2>Screens</h2>
+    <ul class="cards">
+{{SCREENS}}
+    </ul>
+    <h2>Brief</h2>
+    {{BRIEF}}
+    <h2>Directions</h2>
+    {{DIRECTIONS}}
+    <h2>Raised while designing</h2>
+    {{CONCERNS}}
+    <h2>Audit</h2>
+    {{AUDIT}}
+    <p class="lede">Pushing this bundle to a shared design system is a person's step: see DESIGN-SYNC.md in this folder.</p>
+  </main>
+</div>
+</div></div>
+</body>
+</html>

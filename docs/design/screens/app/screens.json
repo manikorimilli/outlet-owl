@@ -1,0 +1,175 @@
+[
+ {
+  "key": "app/S-01",
+  "name": "Sign in",
+  "purpose": "Sign in with an account from the users file to reach the overview.",
+  "platform": "both",
+  "serves": [
+   "US-00-001"
+  ],
+  "states": [
+   "success",
+   "loading",
+   "error",
+   "session-expired"
+  ],
+  "path": "screens/app/S-01-sign-in.html"
+ },
+ {
+  "key": "app/S-02",
+  "name": "Overview",
+  "purpose": "See which outlet and theme moved most this week, the urgent reviews, and how outlets compare.",
+  "platform": "both",
+  "serves": [
+   "US-01-005",
+   "US-01-007",
+   "US-00-001",
+   "US-02-001"
+  ],
+  "states": [
+   "success",
+   "loading",
+   "empty",
+   "error",
+   "partial",
+   "budget-stop",
+   "tagging-paused",
+   "manager"
+  ],
+  "path": "screens/app/S-02-overview.html"
+ },
+ {
+  "key": "app/S-03",
+  "name": "Themes",
+  "purpose": "See where negative reviews cluster by outlet and theme.",
+  "platform": "both",
+  "serves": [
+   "US-01-006",
+   "US-00-001"
+  ],
+  "states": [
+   "success",
+   "loading",
+   "empty",
+   "error",
+   "partial",
+   "manager"
+  ],
+  "path": "screens/app/S-03-themes.html"
+ },
+ {
+  "key": "app/S-04",
+  "name": "Reviews",
+  "purpose": "Search and filter every review, and open one to reply.",
+  "platform": "both",
+  "serves": [
+   "US-01-008",
+   "US-00-001"
+  ],
+  "states": [
+   "success",
+   "loading",
+   "empty",
+   "no-results",
+   "error",
+   "partial",
+   "urgent-filter",
+   "manager",
+   "forbidden"
+  ],
+  "path": "screens/app/S-04-reviews.html"
+ },
+ {
+  "key": "app/S-05",
+  "name": "Review and reply",
+  "purpose": "Read one review, edit its drafted reply and mark it replied.",
+  "platform": "both",
+  "serves": [
+   "US-00-002",
+   "US-00-003"
+  ],
+  "states": [
+   "success",
+   "loading",
+   "error",
+   "partial",
+   "replied",
+   "budget-stop",
+   "hindi",
+   "admin-view",
+   "no-manager",
+   "forbidden"
+  ],
+  "path": "screens/app/S-05-review-reply.html"
+ },
+ {
+  "key": "app/S-06",
+  "name": "Outlets",
+  "purpose": "Add outlets and see who manages each one.",
+  "platform": "both",
+  "serves": [
+   "US-01-001"
+  ],
+  "states": [
+   "success",
+   "loading",
+   "empty",
+   "error",
+   "partial",
+   "duplicate-name"
+  ],
+  "path": "screens/app/S-06-outlets.html"
+ },
+ {
+  "key": "app/S-07",
+  "name": "Import reviews",
+  "purpose": "Upload a CSV of reviews and see what was imported, skipped and rejected.",
+  "platform": "both",
+  "serves": [
+   "US-01-002",
+   "US-01-003",
+   "US-01-004"
+  ],
+  "states": [
+   "success",
+   "loading",
+   "empty",
+   "error",
+   "partial",
+   "ready"
+  ],
+  "path": "screens/app/S-07-import.html"
+ },
+ {
+  "key": "app/S-08",
+  "name": "Weekly digest",
+  "purpose": "Generate the weekly digest on demand and check what was sent.",
+  "platform": "both",
+  "serves": [
+   "US-01-009"
+  ],
+  "states": [
+   "success",
+   "loading",
+   "empty",
+   "error",
+   "partial",
+   "ready"
+  ],
+  "path": "screens/app/S-08-digest.html"
+ },
+ {
+  "key": "app/S-09",
+  "name": "More",
+  "purpose": "Reach the admin's less frequent pages on a phone.",
+  "platform": "mobile",
+  "serves": [
+   "US-01-001",
+   "US-01-009"
+  ],
+  "states": [
+   "success"
+  ],
+  "path": "screens/app/S-09-more.html"
+ }
+]

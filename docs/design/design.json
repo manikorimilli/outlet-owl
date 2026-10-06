@@ -1,0 +1,351 @@
+{
+  "product": "OutletOwl",
+  "version": 2,
+  "brief": {
+    "surface": "web app, responsive from 375 px phones to 1440 px desktops; React and Vite single-page app (ADR-0002)",
+    "audience": "A brand admin comparing every outlet of one brand at a desk, and outlet managers replying to their own outlet's reviews, sometimes on a phone. Reviews are in English, Devanagari Hindi and Hinglish.",
+    "must_feel": "Premium and polished, like one product from a funded startup: deep navy navigation, a light blue-white canvas, white cards with soft shadows, electric blue pill buttons with a soft glow; still a clear information hierarchy with readable charts and tables (PRD L141 to L156).",
+    "avoid": "Clutter, decoration over review data, colour-only meaning, another product's logo, text or images.",
+    "references": "webinar.gg, chosen by the product owner in round 2: its navy hero with light streaks, Plus Jakarta Sans headings with gradient words, pill buttons with a blue glow and white cards on soft-blue sections, adapted to an app. No logo, text or image copied.",
+    "notes": "Round 2 (2026-10-06): full visual redesign requested by the product owner; content, data, states and flows unchanged. Light only (dark dropped). Status keeps red, amber and green with words. Gradient words on light pages use the darker #0B5CFF to #3B82F6 gradient for contrast. Tenant colours (US-01-010) are a stretch and not designed."
+  },
+  "directions": [
+    {
+      "name": "Night launch",
+      "chosen": true,
+      "source": "brief",
+      "rationale": "Round 2, product owner's direction with webinar.gg as the reference: Plus Jakarta Sans everywhere (Noto Sans Devanagari for Hindi), a #010D35 to #051B59 navy gradient for sign-in and navigation, #F8FAFF canvas, white cards at 20 px radius, #0B5CFF pill buttons with an rgba(59,130,246,0.3) glow, soft-blue #E6F0FE panels and badges, gradient words in titles, a blue heatmap ramp."
+    },
+    {
+      "name": "Instrument panel",
+      "chosen": false,
+      "source": "brief",
+      "rationale": "IBM Plex Sans Condensed, IBM Plex Sans, IBM Plex Sans Devanagari and IBM Plex Mono: one family for English and Hindi; cool graphite surfaces, ruled tables, tabular figures; one teal-blue accent for the primary action and current position; red kept for urgent, always with the word. Chosen in round 1, replaced in round 2 by the product owner."
+    },
+    {
+      "name": "Swiss grid",
+      "chosen": false,
+      "source": "brief",
+      "rationale": "Schibsted Grotesk with Noto Sans Devanagari; airy hairline grid. Lost: lower data density, and Hindi from a different family."
+    },
+    {
+      "name": "Ledger",
+      "chosen": false,
+      "source": "brief",
+      "rationale": "Spectral serif with Work Sans; ruled rows on grey paper. Lost: its one red accent competes with the urgent red."
+    }
+  ],
+  "stories": [
+    "US-01-001",
+    "US-01-002",
+    "US-01-003",
+    "US-01-004",
+    "US-01-005",
+    "US-01-006",
+    "US-01-007",
+    "US-01-008",
+    "US-01-009",
+    "US-00-001",
+    "US-00-002",
+    "US-00-003",
+    "US-02-001",
+    "US-02-002",
+    "US-02-003",
+    "US-02-004",
+    "US-02-005",
+    "US-02-006",
+    "US-01-010"
+  ],
+  "sitemap": [
+    {
+      "name": "Sign in",
+      "screen": "app/S-01"
+    },
+    {
+      "name": "Overview",
+      "screen": "app/S-02"
+    },
+    {
+      "name": "Reviews",
+      "screen": "app/S-04",
+      "children": [
+        {
+          "name": "Review and reply",
+          "screen": "app/S-05"
+        }
+      ]
+    },
+    {
+      "name": "Themes",
+      "screen": "app/S-03"
+    },
+    {
+      "name": "Admin",
+      "children": [
+        {
+          "name": "Outlets",
+          "screen": "app/S-06"
+        },
+        {
+          "name": "Import reviews",
+          "screen": "app/S-07"
+        },
+        {
+          "name": "Weekly digest",
+          "screen": "app/S-08"
+        },
+        {
+          "name": "More (phone)",
+          "screen": "app/S-09"
+        }
+      ]
+    }
+  ],
+  "navigation": {
+    "desktop": "Top bar: product and brand, the tagging and budget status strip, the signed-in person and role, Sign out. Side nav for the brand admin: Overview, Reviews, Themes, Outlets, Import, Digest; for an outlet manager: Overview, Reviews, Themes. At 768 the side nav becomes a row under the top bar.",
+    "mobile": "Bottom tab bar. Brand admin: Overview, Reviews, Themes, Import, More (Outlets, Weekly digest, Sign out). Outlet manager: Overview, Reviews, Themes. Detail pages (a review, outlets, digest) show a back link in the top bar.",
+    "why": "Overview, Reviews and Themes are daily destinations for both roles and sit one tap away; Outlets, Import and Digest are occasional admin tasks, grouped where a phone has no room for six tabs; managers never see controls they cannot use (Q-002). The urgent count on Overview opens the urgent-filtered list in one step (REQ-046).",
+    "source": "proposed from the stories (no flows file); confirmed by the product owner in session, 2026-10-06"
+  },
+  "screens": [
+    {
+      "key": "app/S-01",
+      "name": "Sign in",
+      "purpose": "Sign in with an account from the users file to reach the overview.",
+      "platform": "both",
+      "serves": [
+        "US-00-001"
+      ],
+      "states": [
+        "success",
+        "loading",
+        "error",
+        "session-expired"
+      ],
+      "path": "screens/app/S-01-sign-in.html"
+    },
+    {
+      "key": "app/S-02",
+      "name": "Overview",
+      "purpose": "See which outlet and theme moved most this week, the urgent reviews, and how outlets compare.",
+      "platform": "both",
+      "serves": [
+        "US-01-005",
+        "US-01-007",
+        "US-00-001",
+        "US-02-001"
+      ],
+      "states": [
+        "success",
+        "loading",
+        "empty",
+        "error",
+        "partial",
+        "budget-stop",
+        "tagging-paused",
+        "manager"
+      ],
+      "path": "screens/app/S-02-overview.html"
+    },
+    {
+      "key": "app/S-03",
+      "name": "Themes",
+      "purpose": "See where negative reviews cluster by outlet and theme.",
+      "platform": "both",
+      "serves": [
+        "US-01-006",
+        "US-00-001"
+      ],
+      "states": [
+        "success",
+        "loading",
+        "empty",
+        "error",
+        "partial",
+        "manager"
+      ],
+      "path": "screens/app/S-03-themes.html"
+    },
+    {
+      "key": "app/S-04",
+      "name": "Reviews",
+      "purpose": "Search and filter every review, and open one to reply.",
+      "platform": "both",
+      "serves": [
+        "US-01-008",
+        "US-00-001"
+      ],
+      "states": [
+        "success",
+        "loading",
+        "empty",
+        "no-results",
+        "error",
+        "partial",
+        "urgent-filter",
+        "manager",
+        "forbidden"
+      ],
+      "path": "screens/app/S-04-reviews.html"
+    },
+    {
+      "key": "app/S-05",
+      "name": "Review and reply",
+      "purpose": "Read one review, edit its drafted reply and mark it replied.",
+      "platform": "both",
+      "serves": [
+        "US-00-002",
+        "US-00-003"
+      ],
+      "states": [
+        "success",
+        "loading",
+        "error",
+        "partial",
+        "replied",
+        "budget-stop",
+        "hindi",
+        "admin-view",
+        "no-manager",
+        "forbidden"
+      ],
+      "path": "screens/app/S-05-review-reply.html"
+    },
+    {
+      "key": "app/S-06",
+      "name": "Outlets",
+      "purpose": "Add outlets and see who manages each one.",
+      "platform": "both",
+      "serves": [
+        "US-01-001"
+      ],
+      "states": [
+        "success",
+        "loading",
+        "empty",
+        "error",
+        "partial",
+        "duplicate-name"
+      ],
+      "path": "screens/app/S-06-outlets.html"
+    },
+    {
+      "key": "app/S-07",
+      "name": "Import reviews",
+      "purpose": "Upload a CSV of reviews and see what was imported, skipped and rejected.",
+      "platform": "both",
+      "serves": [
+        "US-01-002",
+        "US-01-003",
+        "US-01-004"
+      ],
+      "states": [
+        "success",
+        "loading",
+        "empty",
+        "error",
+        "partial",
+        "ready"
+      ],
+      "path": "screens/app/S-07-import.html"
+    },
+    {
+      "key": "app/S-08",
+      "name": "Weekly digest",
+      "purpose": "Generate the weekly digest on demand and check what was sent.",
+      "platform": "both",
+      "serves": [
+        "US-01-009"
+      ],
+      "states": [
+        "success",
+        "loading",
+        "empty",
+        "error",
+        "partial",
+        "ready"
+      ],
+      "path": "screens/app/S-08-digest.html"
+    },
+    {
+      "key": "app/S-09",
+      "name": "More",
+      "purpose": "Reach the admin's less frequent pages on a phone.",
+      "platform": "mobile",
+      "serves": [
+        "US-01-001",
+        "US-01-009"
+      ],
+      "states": [
+        "success"
+      ],
+      "path": "screens/app/S-09-more.html"
+    }
+  ],
+  "concerns": [
+    {
+      "kind": "ambiguity",
+      "detail": "No flows file exists (ux-flows not run); the screen inventory, states and navigation come from the stories, the PRD and the HLD. Navigation was proposed and confirmed by the product owner."
+    },
+    {
+      "kind": "risk",
+      "detail": "api/openapi.yaml does not exist yet; every error and status state is drawn from HLD sections 5 and 7 (401, 403, 409, 422, budget stop, OpenRouter 402, SMTP failure, 45 second draft deadline). openapi-spec must return these codes or the states change."
+    },
+    {
+      "kind": "ambiguity",
+      "detail": "Heatmap cell measure chosen in design: negative reviews per outlet and theme over the last 4 complete weeks, a review with two themes counted under each. REQ-017 leaves the measure to design.",
+      "screen": "app/S-03"
+    },
+    {
+      "kind": "risk",
+      "detail": "An outlet with no manager cannot have its reviews replied to, because the brand admin may not reply (Q-002); the no-manager state tells the admin to add a manager to the users file (HLD).",
+      "screen": "app/S-05"
+    },
+    {
+      "kind": "undefined-state",
+      "detail": "Phone search shows five filters behind one Filters button; the filter sheet itself is not drawn in this round.",
+      "screen": "app/S-04"
+    },
+    {
+      "kind": "missing-screen",
+      "detail": "US-02-002 (prompt versions), US-02-003 (replay tests), US-02-004 (classification evaluation), US-02-005 (tone check) and US-02-006 (seed) are command-line or developer work with no screen by design; their effects appear as the prompt version on drafts and the budget banner."
+    },
+    {
+      "kind": "missing-screen",
+      "detail": "US-01-010 tenant colours is a stretch feature and is not designed in the MVP round; tokens.css keeps colour in one place so a brand theme can be added later."
+    },
+    {
+      "kind": "risk",
+      "detail": "Fonts load from Google Fonts in these mockups only; the app must bundle Plus Jakarta Sans and Noto Sans Devanagari files, because the runtime allows nothing else (HLD section 3). Plus Jakarta Sans has no Devanagari, so Hindi always renders in Noto Sans Devanagari."
+    },
+    {
+      "kind": "ambiguity",
+      "detail": "Round 2 adds a fade-and-rise on load for every screen and a hover lift on cards and buttons, at the product owner's request; the PRD (L149 to L150) asks to avoid unnecessary animation. Motion is short (420 ms, 200 ms transitions) and off under reduced motion. The PRD line may need rewording to match."
+    },
+    {
+      "kind": "ambiguity",
+      "detail": "Mark as replied is the approval (Q-008). The page tells the manager to post the text on the review site first; nothing checks that they did."
+    }
+  ],
+  "audit": {
+    "ran_on": "2026-10-06",
+    "checked": {
+      "screens": 9,
+      "panels": 56,
+      "links": 1086,
+      "stories": 19,
+      "features": 1,
+      "flows": 0
+    },
+    "missing_screens": [],
+    "missing_states": [],
+    "missing_chrome": [],
+    "unannotated_states": [],
+    "dead_links": [],
+    "missing_nav_links": [],
+    "external_refs": [],
+    "hardcoded_colours": [],
+    "unlinked_tokens": [],
+    "uncovered_stories": []
+  }
+}

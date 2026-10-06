@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>OutletOwl: design bundle</title>
+<!--
+  docs/design/index.html, rendered by bundle.py gallery from docs/design/design.json with
+  this repository template (round 2 restyle, Night launch):
+    python3 <screen-design skill>/scripts/bundle.py gallery --design docs/design --template docs/design/gallery.template.html
+  Do not edit the output: change design.json or this template and render again.
+  Colours come from tokens.css next to this file; this template names none.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Noto+Sans+Devanagari:wght@400;600&amp;display=swap">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { margin: 0; background: var(--color-bg); color: var(--color-text);
+    font-family: var(--font-body); font-size: var(--text-body); line-height: var(--leading-body); overflow-x: clip; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { font-family: var(--font-display); line-height: 1.15; text-wrap: balance; margin: 0 0 var(--space-2); letter-spacing: var(--tracking-title); }
+  h1 { font-size: var(--text-hero); font-weight: var(--weight-stat); }
+  h2 { font-size: var(--text-display); font-weight: var(--weight-title); margin-top: var(--space-6); }
+  h3 { font-size: var(--text-title); font-weight: var(--weight-title); }
+  a { color: var(--color-link); text-underline-offset: 3px; }
+  p { max-width: 70ch; }
+  .skip { position: absolute; inset-inline-start: var(--space-3); top: -100px; }
+  .skip:focus { top: var(--space-3); background: var(--color-surface-raised); padding: var(--space-2) var(--space-3); border-radius: var(--radius-pill); }
+  /* Navy hero with light streaks, like the sign-in page. */
+  .hero { position: relative; overflow: hidden; isolation: isolate; background: var(--gradient-navy); color: var(--color-on-navy);
+    padding: var(--space-7) var(--space-3) calc(var(--space-7) + var(--space-4)); }
+  .hero::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--glow-hero); }
+  .hero a { color: var(--color-on-navy-muted); }
+  .hero :focus-visible { outline-color: var(--color-focus-on-navy); }
+  .hero .lede { color: var(--color-on-navy-muted); font-size: var(--text-title); }
+  .hero h1 span { background: var(--gradient-highlight-dark); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .streaks { position: absolute; inset-inline: 0; inset-block-end: 0; inline-size: 100%; block-size: 8rem; z-index: -1; pointer-events: none; }
+  .sk { fill: none; stroke-linecap: round; }
+  .sk1 { stroke: var(--color-streak-1); stroke-width: 5; filter: drop-shadow(0 0 10px var(--color-streak-1)); }
+  .sk2 { stroke: var(--color-streak-2); stroke-width: 2; filter: drop-shadow(0 0 8px var(--color-streak-2)); }
+  .sk3 { stroke: var(--color-streak-3); stroke-width: 12; opacity: .5; filter: drop-shadow(0 0 16px var(--color-streak-3)); }
+  .wrap { max-width: 1280px; margin-inline: auto; }
+  @media (min-width: 768px) { .hero { padding-inline: var(--space-5); } .body { padding-inline: var(--space-5); } }
+  .body { padding: var(--space-5) var(--space-3) var(--space-7); position: relative; }
+  .lede, .key { color: var(--color-text-muted); }
+  .key { font-size: var(--text-label); font-weight: var(--weight-label); }
+  .layout { display: grid; gap: var(--space-5); grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 1100px) { .layout { grid-template-columns: 20rem minmax(0, 1fr); } }
+  .side { align-self: start; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-overlay);
+    box-shadow: var(--elevation-1); padding: var(--space-4); }
+  .side h2 { margin-top: 0; font-size: var(--text-title); }
+  @media (min-width: 1100px) { .side { position: sticky; top: var(--space-3); } }
+  .side ul { list-style: none; padding-inline-start: var(--space-3); margin: 0; }
+  .side > div > ul { padding-inline-start: 0; }
+  .side li { margin-block: var(--space-1); }
+  main > h2:first-child { margin-top: 0; }
+  dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--space-2) var(--space-3); margin: 0; }
+  dt { color: var(--color-text-muted); font-weight: var(--weight-label); }
+  dd { margin: 0; }
+  .cards { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); }
+  .card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-container); box-shadow: var(--elevation-1);
+    padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-2);
+    transition: transform var(--duration-base) var(--ease-standard), box-shadow var(--duration-base) var(--ease-standard); }
+  .card:hover { transform: var(--lift); box-shadow: var(--elevation-2); }
+  .card p { margin: 0; }
+  .card h3 a { color: var(--color-text); text-decoration: none; }
+  .card h3 a:hover { color: var(--color-accent); }
+  .states a { display: inline-block; margin: 0 var(--space-1) var(--space-1) 0; padding: 2px var(--space-half); border-radius: var(--radius-pill);
+    background: var(--color-bg-subtle); color: var(--color-text); font-size: var(--text-label); font-weight: var(--weight-medium); text-decoration: none; }
+  .states a:hover { background: var(--color-accent); color: var(--color-on-accent); }
+  .serves, .notes { color: var(--color-text-muted); font-size: var(--text-label); }
+  .raised { margin-top: var(--space-2); padding: var(--space-half) var(--space-3); background: var(--color-warning-subtle); border-radius: var(--radius-control); font-size: var(--text-label); }
+  .raised p { font-weight: var(--weight-label); color: var(--color-warning); }
+  .raised ul { margin: var(--space-1) 0 0; padding-inline-start: var(--space-3); }
+  .panel { background: var(--color-bg-subtle); border-radius: var(--radius-container); padding: var(--space-3); margin-top: var(--space-4); }
+  .panel h3 { font-size: var(--text-body); }
+  main > ul:not(.cards), main > dl, main > p, main > div:not(.cards) { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-container);
+    box-shadow: var(--elevation-1); padding: var(--space-4) var(--space-4) var(--space-4) var(--space-6); max-width: none; }
+  main > dl, main > div:not(.cards) { padding-inline-start: var(--space-4); }
+  main > p.lede { background: none; border: 0; box-shadow: none; padding: 0; margin-top: var(--space-4); }
+  main li { margin-block: var(--space-1); }
+  @media (prefers-reduced-motion: reduce) { .card:hover { transform: none; } }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="hero">
+<div class="wrap">
+  <h1><span>OutletOwl</span> design bundle</h1>
+  <p class="lede">Design bundle v2. 9 screens across 1 features. web app, responsive from 375 px phones to 1440 px desktops; React and Vite single-page app (ADR-0002)</p>
+  <p>No design-system.html yet (design-system writes it).</p>
+</div>
+<svg class="streaks" viewBox="0 0 1440 200" preserveAspectRatio="none" aria-hidden="true">
+  <path class="sk sk3" d="M-40 170 C 320 100, 700 210, 1040 140 S 1400 80, 1500 90"/>
+  <path class="sk sk1" d="M-40 160 C 330 95, 710 195, 1050 130 S 1400 70, 1500 80"/>
+  <path class="sk sk2" d="M-40 152 C 340 88, 720 185, 1060 124 S 1410 62, 1500 70"/>
+</svg>
+</header>
+<div class="body"><div class="wrap">
+<div class="layout">
+  <aside class="side" aria-label="Information architecture">
+    <h2>Sitemap</h2>
+    <div><ul><li><a href="screens/app/S-01-sign-in.html">Sign in</a> <span class="key">app/S-01</span></li><li><a href="screens/app/S-02-overview.html">Overview</a> <span class="key">app/S-02</span></li><li><a href="screens/app/S-04-reviews.html">Reviews</a> <span class="key">app/S-04</span><ul><li><a href="screens/app/S-05-review-reply.html">Review and reply</a> <span class="key">app/S-05</span></li></ul></li><li><a href="screens/app/S-03-themes.html">Themes</a> <span class="key">app/S-03</span></li><li>Admin<ul><li><a href="screens/app/S-06-outlets.html">Outlets</a> <span class="key">app/S-06</span></li><li><a href="screens/app/S-07-import.html">Import reviews</a> <span class="key">app/S-07</span></li><li><a href="screens/app/S-08-digest.html">Weekly digest</a> <span class="key">app/S-08</span></li><li><a href="screens/app/S-09-more.html">More (phone)</a> <span class="key">app/S-09</span></li></ul></li></ul></div>
+    <div class="panel">
+      <h3>Navigation</h3>
+      <dl><dt>Desktop</dt><dd>Top bar: product and brand, the tagging and budget status strip, the signed-in person and role, Sign out. Side nav for the brand admin: Overview, Reviews, Themes, Outlets, Import, Digest; for an outlet manager: Overview, Reviews, Themes. At 768 the side nav becomes a row under the top bar.</dd><dt>Mobile</dt><dd>Bottom tab bar. Brand admin: Overview, Reviews, Themes, Import, More (Outlets, Weekly digest, Sign out). Outlet manager: Overview, Reviews, Themes. Detail pages (a review, outlets, digest) show a back link in the top bar.</dd><dt>Why</dt><dd>Overview, Reviews and Themes are daily destinations for both roles and sit one tap away; Outlets, Import and Digest are occasional admin tasks, grouped where a phone has no room for six tabs; managers never see controls they cannot use (Q-002). The urgent count on Overview opens the urgent-filtered list in one step (REQ-046).</dd></dl>
+    </div>
+  </aside>
+  <main id="main">
+    <h2>Screens</h2>
+    <ul class="cards">
+<li class="card" id="app-s-01"><h3><a href="screens/app/S-01-sign-in.html">Sign in</a></h3><p class="key">app/S-01 &middot; both</p><p>Sign in with an account from the users file to reach the overview.</p><p class="states">States: <a href="screens/app/S-01-sign-in.html#state=success">success</a> <a href="screens/app/S-01-sign-in.html#state=loading">loading</a> <a href="screens/app/S-01-sign-in.html#state=error">error</a> <a href="screens/app/S-01-sign-in.html#state=session-expired">session-expired</a></p><p class="serves">Serves US-00-001</p></li>
+<li class="card" id="app-s-02"><h3><a href="screens/app/S-02-overview.html">Overview</a></h3><p class="key">app/S-02 &middot; both</p><p>See which outlet and theme moved most this week, the urgent reviews, and how outlets compare.</p><p class="states">States: <a href="screens/app/S-02-overview.html#state=success">success</a> <a href="screens/app/S-02-overview.html#state=loading">loading</a> <a href="screens/app/S-02-overview.html#state=empty">empty</a> <a href="screens/app/S-02-overview.html#state=error">error</a> <a href="screens/app/S-02-overview.html#state=partial">partial</a> <a href="screens/app/S-02-overview.html#state=budget-stop">budget-stop</a> <a href="screens/app/S-02-overview.html#state=tagging-paused">tagging-paused</a> <a href="screens/app/S-02-overview.html#state=manager">manager</a></p><p class="serves">Serves US-01-005, US-01-007, US-00-001, US-02-001</p></li>
+<li class="card" id="app-s-03"><h3><a href="screens/app/S-03-themes.html">Themes</a></h3><p class="key">app/S-03 &middot; both</p><p>See where negative reviews cluster by outlet and theme.</p><p class="states">States: <a href="screens/app/S-03-themes.html#state=success">success</a> <a href="screens/app/S-03-themes.html#state=loading">loading</a> <a href="screens/app/S-03-themes.html#state=empty">empty</a> <a href="screens/app/S-03-themes.html#state=error">error</a> <a href="screens/app/S-03-themes.html#state=partial">partial</a> <a href="screens/app/S-03-themes.html#state=manager">manager</a></p><p class="serves">Serves US-01-006, US-00-001</p><div class="raised"><p>Raised while designing</p><ul><li><b>ambiguity</b> Heatmap cell measure chosen in design: negative reviews per outlet and theme over the last 4 complete weeks, a review with two themes counted under each. REQ-017 leaves the measure to design.</li></ul></div></li>
+<li class="card" id="app-s-04"><h3><a href="screens/app/S-04-reviews.html">Reviews</a></h3><p class="key">app/S-04 &middot; both</p><p>Search and filter every review, and open one to reply.</p><p class="states">States: <a href="screens/app/S-04-reviews.html#state=success">success</a> <a href="screens/app/S-04-reviews.html#state=loading">loading</a> <a href="screens/app/S-04-reviews.html#state=empty">empty</a> <a href="screens/app/S-04-reviews.html#state=no-results">no-results</a> <a href="screens/app/S-04-reviews.html#state=error">error</a> <a href="screens/app/S-04-reviews.html#state=partial">partial</a> <a href="screens/app/S-04-reviews.html#state=urgent-filter">urgent-filter</a> <a href="screens/app/S-04-reviews.html#state=manager">manager</a> <a href="screens/app/S-04-reviews.html#state=forbidden">forbidden</a></p><p class="serves">Serves US-01-008, US-00-001</p><div class="raised"><p>Raised while designing</p><ul><li><b>undefined-state</b> Phone search shows five filters behind one Filters button; the filter sheet itself is not drawn in this round.</li></ul></div></li>
+<li class="card" id="app-s-05"><h3><a href="screens/app/S-05-review-reply.html">Review and reply</a></h3><p class="key">app/S-05 &middot; both</p><p>Read one review, edit its drafted reply and mark it replied.</p><p class="states">States: <a href="screens/app/S-05-review-reply.html#state=success">success</a> <a href="screens/app/S-05-review-reply.html#state=loading">loading</a> <a href="screens/app/S-05-review-reply.html#state=error">error</a> <a href="screens/app/S-05-review-reply.html#state=partial">partial</a> <a href="screens/app/S-05-review-reply.html#state=replied">replied</a> <a href="screens/app/S-05-review-reply.html#state=budget-stop">budget-stop</a> <a href="screens/app/S-05-review-reply.html#state=hindi">hindi</a> <a href="screens/app/S-05-review-reply.html#state=admin-view">admin-view</a> <a href="screens/app/S-05-review-reply.html#state=no-manager">no-manager</a> <a href="screens/app/S-05-review-reply.html#state=forbidden">forbidden</a></p><p class="serves">Serves US-00-002, US-00-003</p><div class="raised"><p>Raised while designing</p><ul><li><b>risk</b> An outlet with no manager cannot have its reviews replied to, because the brand admin may not reply (Q-002); the no-manager state tells the admin to add a manager to the users file (HLD).</li></ul></div></li>
+<li class="card" id="app-s-06"><h3><a href="screens/app/S-06-outlets.html">Outlets</a></h3><p class="key">app/S-06 &middot; both</p><p>Add outlets and see who manages each one.</p><p class="states">States: <a href="screens/app/S-06-outlets.html#state=success">success</a> <a href="screens/app/S-06-outlets.html#state=loading">loading</a> <a href="screens/app/S-06-outlets.html#state=empty">empty</a> <a href="screens/app/S-06-outlets.html#state=error">error</a> <a href="screens/app/S-06-outlets.html#state=partial">partial</a> <a href="screens/app/S-06-outlets.html#state=duplicate-name">duplicate-name</a></p><p class="serves">Serves US-01-001</p></li>
+<li class="card" id="app-s-07"><h3><a href="screens/app/S-07-import.html">Import reviews</a></h3><p class="key">app/S-07 &middot; both</p><p>Upload a CSV of reviews and see what was imported, skipped and rejected.</p><p class="states">States: <a href="screens/app/S-07-import.html#state=success">success</a> <a href="screens/app/S-07-import.html#state=loading">loading</a> <a href="screens/app/S-07-import.html#state=empty">empty</a> <a href="screens/app/S-07-import.html#state=error">error</a> <a href="screens/app/S-07-import.html#state=partial">partial</a> <a href="screens/app/S-07-import.html#state=ready">ready</a></p><p class="serves">Serves US-01-002, US-01-003, US-01-004</p></li>
+<li class="card" id="app-s-08"><h3><a href="screens/app/S-08-digest.html">Weekly digest</a></h3><p class="key">app/S-08 &middot; both</p><p>Generate the weekly digest on demand and check what was sent.</p><p class="states">States: <a href="screens/app/S-08-digest.html#state=success">success</a> <a href="screens/app/S-08-digest.html#state=loading">loading</a> <a href="screens/app/S-08-digest.html#state=empty">empty</a> <a href="screens/app/S-08-digest.html#state=error">error</a> <a href="screens/app/S-08-digest.html#state=partial">partial</a> <a href="screens/app/S-08-digest.html#state=ready">ready</a></p><p class="serves">Serves US-01-009</p></li>
+<li class="card" id="app-s-09"><h3><a href="screens/app/S-09-more.html">More</a></h3><p class="key">app/S-09 &middot; mobile</p><p>Reach the admin&#x27;s less frequent pages on a phone.</p><p class="states">States: <a href="screens/app/S-09-more.html#state=success">success</a></p><p class="serves">Serves US-01-001, US-01-009</p></li>
+    </ul>
+    <h2>Brief</h2>
+    <dl><dt>Audience</dt><dd>A brand admin comparing every outlet of one brand at a desk, and outlet managers replying to their own outlet&#x27;s reviews, sometimes on a phone. Reviews are in English, Devanagari Hindi and Hinglish.</dd><dt>Must feel</dt><dd>Premium and polished, like one product from a funded startup: deep navy navigation, a light blue-white canvas, white cards with soft shadows, electric blue pill buttons with a soft glow; still a clear information hierarchy with readable charts and tables (PRD L141 to L156).</dd><dt>Avoid</dt><dd>Clutter, decoration over review data, colour-only meaning, another product&#x27;s logo, text or images.</dd></dl>
+    <h2>Directions</h2>
+    <ul><li><b>Night launch</b> (chosen) Round 2, product owner&#x27;s direction with webinar.gg as the reference: Plus Jakarta Sans everywhere (Noto Sans Devanagari for Hindi), a #010D35 to #051B59 navy gradient for sign-in and navigation, #F8FAFF canvas, white cards at 20 px radius, #0B5CFF pill buttons with an rgba(59,130,246,0.3) glow, soft-blue #E6F0FE panels and badges, gradient words in titles, a blue heatmap ramp.</li><li><b>Instrument panel</b> IBM Plex Sans Condensed, IBM Plex Sans, IBM Plex Sans Devanagari and IBM Plex Mono: one family for English and Hindi; cool graphite surfaces, ruled tables, tabular figures; one teal-blue accent for the primary action and current position; red kept for urgent, always with the word. Chosen in round 1, replaced in round 2 by the product owner.</li><li><b>Swiss grid</b> Schibsted Grotesk with Noto Sans Devanagari; airy hairline grid. Lost: lower data density, and Hindi from a different family.</li><li><b>Ledger</b> Spectral serif with Work Sans; ruled rows on grey paper. Lost: its one red accent competes with the urgent red.</li></ul>
+    <h2>Raised while designing</h2>
+    <ul><li><b>ambiguity</b> No flows file exists (ux-flows not run); the screen inventory, states and navigation come from the stories, the PRD and the HLD. Navigation was proposed and confirmed by the product owner.</li><li><b>risk</b> api/openapi.yaml does not exist yet; every error and status state is drawn from HLD sections 5 and 7 (401, 403, 409, 422, budget stop, OpenRouter 402, SMTP failure, 45 second draft deadline). openapi-spec must return these codes or the states change.</li><li><b>missing-screen</b> US-02-002 (prompt versions), US-02-003 (replay tests), US-02-004 (classification evaluation), US-02-005 (tone check) and US-02-006 (seed) are command-line or developer work with no screen by design; their effects appear as the prompt version on drafts and the budget banner.</li><li><b>missing-screen</b> US-01-010 tenant colours is a stretch feature and is not designed in the MVP round; tokens.css keeps colour in one place so a brand theme can be added later.</li><li><b>risk</b> Fonts load from Google Fonts in these mockups only; the app must bundle Plus Jakarta Sans and Noto Sans Devanagari files, because the runtime allows nothing else (HLD section 3). Plus Jakarta Sans has no Devanagari, so Hindi always renders in Noto Sans Devanagari.</li><li><b>ambiguity</b> Round 2 adds a fade-and-rise on load for every screen and a hover lift on cards and buttons, at the product owner&#x27;s request; the PRD (L149 to L150) asks to avoid unnecessary animation. Motion is short (420 ms, 200 ms transitions) and off under reduced motion. The PRD line may need rewording to match.</li><li><b>ambiguity</b> Mark as replied is the approval (Q-008). The page tells the manager to post the text on the review site first; nothing checks that they did.</li></ul>
+    <h2>Audit</h2>
+    <p>Ran on 2026-10-06.</p><dl class="audit"><dt>missing screens</dt><dd>0</dd><dt>missing states</dt><dd>0</dd><dt>missing chrome</dt><dd>0</dd><dt>unannotated states</dt><dd>0</dd><dt>dead links</dt><dd>0</dd><dt>missing nav links</dt><dd>0</dd><dt>external refs</dt><dd>0</dd><dt>hardcoded colours</dt><dd>0</dd><dt>unlinked tokens</dt><dd>0</dd><dt>uncovered stories</dt><dd>0</dd></dl>
+    <p class="lede">Pushing this bundle to a shared design system is a person's step: see DESIGN-SYNC.md in this folder.</p>
+  </main>
+</div>
+</div></div>
+</body>
+</html>
