@@ -1,0 +1,156 @@
+PROJECT BRIEF
+
+Idea title:
+Review Intelligence for Multi-Outlet Businesses
+
+Verticals:
+Restaurants, hotels, clinics and retail chains.
+
+AI depth:
+LLM classification, reply generation and prompt versioning.
+
+Description:
+Collect customer reviews for every outlet, tag them by theme
+(food, wait time, staff, cleanliness, price), track sentiment per
+outlet over time, and draft on-brand replies for a manager to approve.
+A weekly digest names the outlet and the issue that moved most.
+
+Example use case:
+A 25-outlet restaurant chain sees that one outlet's wait-time complaints
+tripled after a staff change and replies to every review within a day
+without a dedicated person.
+
+Treat this as the intended use case, not evidence that the product has
+already achieved these results.
+
+FUNCTIONAL REQUIREMENTS
+
+Roles:
+- Brand admin.
+- Outlet manager.
+
+Outlet management and review import:
+- Admins add outlets.
+- Admins import reviews by CSV.
+- CSV fields: outlet, source, date, rating, text, reviewer name.
+- Implement importing through a connector interface so other sources
+  can be added later.
+- Keep the Google connector as an interface only.
+- Do not implement live connectors.
+
+Review classification:
+- The model tags reviews in batches of 20.
+- Themes come from a configurable list.
+- Initial themes: food, wait time, staff, cleanliness and price.
+- Include sentiment.
+- Include an urgent flag for food safety, harassment and legal threats.
+- Cache successful tags so each review is tagged once.
+
+Biggest risk and requested fallback:
+Batch tagging may return misaligned results for some reviews.
+Use review IDs in the output schema, validate results per ID and retry
+only the missing IDs.
+
+Dashboard:
+- Rating trend per outlet.
+- Sentiment trend per outlet.
+- Theme heatmap by outlet.
+- Biggest movers week over week.
+- Searchable review list.
+
+Reply generation:
+- For each review, the model drafts a reply in the brand's tone.
+- The reply should use the review's language: English or Hindi.
+- An outlet manager edits the draft and marks it replied.
+- Replies require manager approval.
+- The application does not post replies to Google.
+
+Digest:
+- A weekly digest contains movers and urgent reviews.
+- It names the outlet and the issue that moved most.
+- Generate it on demand.
+- Send it to the local mail catcher.
+
+RUNTIME AND AI CONSTRAINTS
+
+Runtime needs:
+- OpenRouter key capped at USD 10.
+- PostgreSQL in Docker.
+- MailHog in Docker for the digest.
+- Nothing else.
+
+Model gateway:
+- All model calls go through one gateway function on OpenRouter.
+- Requested model: claude-haiku-4-5.
+- max_tokens is capped at 1000.
+- Log tokens and cost per call.
+- Refuse calls once the running total passes USD 8.
+
+Preserve my budget wording. If the exact boundary behavior or provider
+model identifier needs clarification, flag it rather than silently
+changing the requirement.
+
+Testing:
+- Tests replay recorded responses.
+- CI makes no live model calls.
+
+EVALUATIONS
+
+- Theme and urgent-flag accuracy on 100 labelled reviews.
+- Urgent recall is the gate.
+- Reply tone checks on 30 drafts.
+
+If an acceptance threshold or scoring rule is missing, list it as a
+question for me. Do not invent an approved threshold.
+
+SEED DATA
+
+- Seed 5 outlets.
+- Seed 1,500 reviews across 6 months.
+- Include a planted wait-time spike at one outlet.
+- Create the seed through a script written by Claude Code.
+
+Keep the 5-outlet demo seed distinct from the 25-outlet example use case.
+
+OUT OF SCOPE
+
+- Posting replies to Google.
+- Live connectors.
+- Per-brand classification themes.
+
+STRETCH FEATURE
+
+- Tenant colours with brg_theme.
+
+Keep tenant colours separate from the required initial release.
+
+MY ORIGINAL SUGGESTIONS / COMMENTS
+
+- This is dashboard-heavy, so brg_design_system may be useful.
+- Brands may want their own colours, making brg_theme useful for the
+  tenant-colour stretch feature.
+- brg_prompt could version the reply prompt per brand tone.
+- brg_events could support digest open rate.
+- Keep the Google connector as an interface only; API access takes weeks.
+
+Treat these as suggestions to assess, not automatic requirements.
+Explain whether each is useful and compatible with the stated scope.
+Use the actual installed Bearing skill names rather than assuming these
+shorthand names are executable commands.
+
+UI EXPECTATIONS
+
+I want the UI to look polished, professional and thoughtfully designed.
+
+When we reach the design stage:
+- Prioritize clear information hierarchy, readable charts and tables,
+  consistent typography, spacing and restrained colours.
+- Make outlet comparisons, urgent reviews and reply actions easy to find.
+- Avoid clutter, unnecessary animation and decorative elements that
+  distract from the review data.
+- Make English and Hindi text readable.
+- Show me the proposed design before implementing it.
+- If a reference website would help, suggest it then and explain which
+  design qualities are relevant. Do not copy another product's branding.
+- Keep visual polish separate from adding new product features.
+- Do not select a UI framework or component library during this PRD step.
