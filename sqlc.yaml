@@ -1,0 +1,14 @@
+# sqlc compiles db/queries against db/migrations into typed Go in
+# internal/store (ADR-0003). It has nothing to compile until the first
+# migration lands (00001_create_outlets_and_users, data model section 8).
+version: "2"
+sql:
+  - engine: postgresql
+    schema: db/migrations
+    queries: db/queries
+    gen:
+      go:
+        package: store
+        out: internal/store
+        sql_package: pgx/v5
+        emit_json_tags: true

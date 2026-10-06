@@ -1,0 +1,24 @@
+# Local runtime services: PostgreSQL and MailHog, and nothing else
+# (PRD section 6). The Go binary runs on the host with `make dev`.
+# Host ports default to the usual ones; set POSTGRES_PORT, MAILHOG_SMTP_PORT
+# or MAILHOG_UI_PORT in .env when another service already uses them.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: outlet_owl
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports: ["127.0.0.1:${POSTGRES_PORT:-5432}:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d outlet_owl"]
+      interval: 5s
+      retries: 10
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      - "127.0.0.1:${MAILHOG_SMTP_PORT:-1025}:1025" # SMTP: the digest is sent here (US-01-009)
+      - "127.0.0.1:${MAILHOG_UI_PORT:-8025}:8025" # web inbox
+volumes:
+  pgdata: {}
