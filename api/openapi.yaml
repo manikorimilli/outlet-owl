@@ -1,0 +1,1252 @@
+openapi: 3.1.0
+info:
+  title: OutletOwl API
+  version: 1.0.0
+  description: |
+    The REST API the OutletOwl web UI calls: sign-in, outlets, CSV import, the review
+    list and replies, the dashboard reports, tagging status and the weekly digest. One
+    browser client, served from the same origin by the Go binary (ADR-0001, ADR-0002,
+    ADR-0005); the UI's TypeScript types are generated from this file (tenet 7).
+    Shapes follow docs/design/data-model.md; screens are docs/design/screens/app.
+    Serves: US-01-001 to US-01-009, US-00-001 to US-00-003, US-02-001 (budget state shown
+    on screen). Style: docs/api/README.md.
+  contact:
+    name: OutletOwl team
+  x-api-style: >-
+    REST over HTTP with JSON bodies (one multipart upload for CSV import); one service,
+    one same-origin browser client, no GraphQL (ADR-0005).
+  x-versioning: >-
+    Major version in the path (/api/v1); no date header. The UI and the server ship in
+    one binary and the UI's types are generated from this spec, so a v2 is needed only if
+    a second client appears (product owner, 2026-10-06).
+  x-authentication: >-
+    A signed JWT in an HttpOnly, SameSite=Strict cookie set by POST /auth/login, 8 hour
+    expiry (ADR-0007). Every operation needs it except login and health. The server
+    re-reads the user's role and outlet on every request; a record outside the caller's
+    outlet is 404, and an action the caller's role may not take is 403.
+  x-conventions:
+    - rule: "Ids are integers, not strings."
+      why: "The data model keeps review ids short integers so 20 tagging result lines fit under max_tokens 1000 (HLD section 8); every id is far below 2^53, so JavaScript reads it exactly."
+    - rule: "Sign-in is a cookie, not a bearer header."
+      why: "ADR-0007 chose an HttpOnly cookie so page scripts can never read the token; same origin and SameSite=Strict keep cross-site requests from sending it."
+    - rule: "Small bounded lists (outlets, themes) and computed reports (trends, heatmap, movers) return the whole result with no cursor; only the review list is cursor-paginated."
+      why: "Outlets and themes are tens of rows, and a report is one computed answer; paging them would only add round trips."
+    - rule: "Idempotency-Key is required on POST /imports and POST /digests and stored with the record for its lifetime; a repeat returns the first result whatever the body."
+      why: "The data model stores the key as request_id under a unique constraint (tenet 8) and keeps no body hash; the record lives as long as the data, so there is no 24 hour expiry."
+    - rule: "POST /outlets, POST /reviews/{review_id}/draft and POST /reviews/{review_id}/replied take no Idempotency-Key."
+      why: "Each has a natural key the database enforces: the outlet name ignoring case, and one reply per review. A repeat returns the existing record (draft, replied) or 409 outlet_name_taken."
+    - rule: "Reply writes carry based_on_updated_at, the reply's updated_at the client last read (null when it saw no reply); a mismatch is 409 reply_changed."
+      why: "An outlet may have several managers and a manager may have two tabs open; a manager must only save over, or approve, text they have seen (REQ-024, product owner 2026-10-06)."
+    - rule: "No rate limiting and no rate-limit headers."
+      why: "A local product with about 6 signed-in staff; neither the PRD nor the HLD asks for limits, and the model spend has its own USD 8 stop."
+    - rule: "CSV uploads are capped at 5 MB; review and reply text at 5,000 characters; outlet name, source, reviewer name and file name at 200."
+      why: "Decided by the product owner on 2026-10-06; 5 MB is about 15,000 reviews, and the limits close the data model's open length concern."
+servers:
+  - url: http://localhost:8080/api/v1
+    description: local (the Go binary; the port is set in low-level-design)
+security:
+  - cookieAuth: []
+tags:
+  - name: auth
+    description: Sign in, sign out and who the caller is (ADR-0007).
+  - name: outlets
+    description: The brand's outlets; the CSV outlet column is matched to their names.
+  - name: imports
+    description: CSV upload through the connector interface; tagging starts after each import.
+  - name: reviews
+    description: The searchable review list, one review with its reply, drafting, editing and marking replied.
+  - name: dashboard
+    description: Computed reports for the overview and themes screens; weeks run Monday to Sunday in the brand timezone.
+  - name: tagging
+    description: Untagged count, tagging worker state and the model budget state.
+  - name: digests
+    description: Generate the weekly digest and send it to the brand admin through MailHog.
+  - name: system
+    description: Health check for the local operator.
+
+paths:
+  /auth/login:
+    post:
+      operationId: login
+      summary: Sign in with email and password
+      description: >-
+        Checks the password against the bcrypt hash from the users file and sets the
+        session cookie. A removed account and a wrong password get the same 401, so the
+        response never says which emails exist.
+      tags: [auth]
+      x-story-ids: [US-00-001]
+      security: []  # public: this is how a caller gets a session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+            example: { email: arjun.mehta@example.in, password: correct-horse-battery }
+      responses:
+        '200':
+          description: Signed in; the cookie is set
+          headers:
+            Set-Cookie:
+              description: outletowl_session, HttpOnly, SameSite=Strict, Path=/, Max-Age=28800.
+              schema: { type: string }
+            X-Request-Id: { $ref: '#/components/headers/XRequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Me' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/InvalidCredentials' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /auth/logout:
+    post:
+      operationId: logout
+      summary: Sign out
+      description: Clears the session cookie. Safe to repeat; a caller with no session also gets 204.
+      tags: [auth]
+      x-story-ids: [US-00-001]
+      x-idempotent: true
+      security: []  # public: signing out must work with an expired cookie
+      responses:
+        '204':
+          description: Signed out; the cookie is cleared
+          headers:
+            Set-Cookie:
+              description: outletowl_session with Max-Age=0.
+              schema: { type: string }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /me:
+    get:
+      operationId: getMe
+      summary: The signed-in user, their outlet and the brand
+      tags: [auth]
+      x-story-ids: [US-00-001]
+      responses:
+        '200':
+          description: The caller
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/XRequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Me' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /health:
+    get:
+      operationId: getHealth
+      summary: Whether the server can reach PostgreSQL
+      description: For the operator and the Docker health check (HLD section 7).
+      tags: [system]
+      x-story-ids: [unnumbered]
+      security: []  # public: a health check runs without a session
+      responses:
+        '200':
+          description: Healthy
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+        '503': { $ref: '#/components/responses/DatabaseUnavailable' }
+
+  /outlets:
+    get:
+      operationId: listOutlets
+      summary: List outlets with their managers and review counts
+      description: >-
+        The brand admin gets every outlet; an outlet manager gets only their own. Ordered
+        by name. Returned whole (tens of rows), no cursor.
+      tags: [outlets]
+      x-story-ids: [US-01-001, US-00-001]
+      responses:
+        '200':
+          description: The outlets the caller may see
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/XRequestId' }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/OutletSummary' }
+              example:
+                data:
+                  - id: 2
+                    name: Indiranagar
+                    managers: [{ id: 3, name: Neha Kulkarni }]
+                    review_count: 300
+                    untagged_count: 0
+                    created_at: '2026-04-06T04:30:00Z'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post:
+      operationId: createOutlet
+      summary: Add an outlet (brand admin)
+      description: >-
+        Names are unique ignoring capitals and are stored trimmed. A name that already
+        exists is 409 outlet_name_taken with the existing name in details, which also
+        answers a repeated request.
+      tags: [outlets]
+      x-story-ids: [US-01-001]
+      x-error-codes: { '403': [role_not_allowed], '409': [outlet_name_taken] }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OutletCreate' }
+            example: { name: Electronic City }
+      responses:
+        '201':
+          description: Created
+          headers:
+            Location: { schema: { type: string } }
+            X-Request-Id: { $ref: '#/components/headers/XRequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OutletSummary' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /imports:
+    post:
+      operationId: createImport
+      summary: Import reviews from a CSV file (brand admin)
+      description: >-
+        Reads the columns outlet, source, date, rating, text and reviewer_name; all six are
+        required in every row. Valid new rows are stored, rows already imported (same
+        outlet, source, date, reviewer and text) are counted as duplicates, and each
+        rejected row is returned with its row number and reason; all in one transaction.
+        A whole-file problem (not a CSV, a missing column) imports nothing and is 400
+        csv_invalid. When the import commits, tagging starts on its own (Q-022). Runs
+        through the connector interface; CSV is the only connector (REQ-004, REQ-005).
+      tags: [imports]
+      x-story-ids: [US-01-002]
+      x-error-codes: { '400': [malformed_request, csv_invalid], '403': [role_not_allowed] }
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { $ref: '#/components/schemas/ImportUpload' }
+            encoding:
+              file: { contentType: text/csv }
+      responses:
+        '201':
+          description: Imported; a repeat with the same Idempotency-Key returns this result again
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/XRequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '413': { $ref: '#/components/responses/FileTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /themes:
+    get:
+      operationId: listThemes
+      summary: The configured theme list
+      description: >-
+        One list for the installation, set in configuration by a developer (Q-012);
+        initially food, wait time, staff, cleanliness and price. Used by the review
+        filters and the heatmap columns.
+      tags: [reviews]
+      x-story-ids: [US-01-003, US-01-006, US-01-008]
+      responses:
+        '200':
+          description: The themes in display order
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/XRequestId' }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Theme' }
+              example:
+                data:
+                  - { code: food, label: Food }
+                  - { code: wait_time, label: Wait time }
+                  - { code: staff, label: Staff }
+                  - { code: cleanliness, label: Cleanliness }
+                  - { code: price, label: Price }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /reviews:
+    get:
+      operationId: listReviews
+      summary: Search and filter reviews, newest first
+      description: >-
+        Text search over review text and reviewer name, plus filters for outlet, theme,
+        sentiment, urgent, reply status and date range (Q-020). Sorted by review_date then
+        id, newest first. An outlet manager sees only their outlet; filter[outlet_id]
+        naming another outlet is 404. Untagged reviews match no theme, sentiment or urgent
+        filter. total counts every match, not just this page.
+      tags: [reviews]
+      x-story-ids: [US-01-008, US-00-001, US-01-007]
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - name: q
+          in: query
+          description: Case-insensitive substring of the review text or the reviewer name.
+          schema: { type: string, minLength: 1, maxLength: 200 }
+        - name: filter[outlet_id]
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: filter[theme]
+          in: query
+          description: A theme code from GET /themes; an unknown code is 422.
+          schema: { type: string, pattern: '^[a-z][a-z0-9_]*$' }
+        - name: filter[sentiment]
+          in: query
+          schema: { $ref: '#/components/schemas/Sentiment' }
+        - name: filter[is_urgent]
+          in: query
+          schema: { type: boolean }
+        - name: filter[reply_status]
+          in: query
+          description: none means no draft yet (drafting included), draft means a draft is ready, replied means approved.
+          schema: { type: string, enum: [none, draft, replied] }
+        - name: filter[review_date][gte]
+          in: query
+          schema: { type: string, format: date }
+        - name: filter[review_date][lte]
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: One page
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/XRequestId' }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, page, total]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/ReviewSummary' }
+                  page: { $ref: '#/components/schemas/Page' }
+                  total: { type: integer, minimum: 0 }
+              example:
+                data:
+                  - id: 1497
+                    outlet: { id: 1, name: Koramangala }
+                    source: Google
+                    review_date: '2026-10-03'
+                    rating: 2
+                    review_text: Waited 50 minutes for a table even with a booking, and the food took another 30.
+                    reviewer_name: Karan Malhotra
+                    tags: { themes: [wait_time, staff, food], sentiment: negative, is_urgent: false, prompt_version: 2 }
+                    reply_status: draft
+                page: { next_cursor: eyJkIjoiMjAyNi0xMC0wMyIsImlkIjoxNDk3fQ, has_more: true }
+                total: 1500
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /reviews/{review_id}:
+    parameters:
+      - $ref: '#/components/parameters/ReviewId'
+    get:
+      operationId: getReview
+      summary: One review with its tags, reply and the outlet's managers
+      description: >-
+        Never calls the model. The brand admin reads any review, including its draft
+        (admin view); an outlet manager reads only their outlet's reviews. can_reply says
+        whether this caller may draft, edit and mark it replied.
+      tags: [reviews]
+      x-story-ids: [US-00-002, US-00-003, US-01-008, US-00-001]
+      responses:
+        '200':
+          description: The review
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/XRequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReviewDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /reviews/{review_id}/draft:
+    parameters:
+      - $ref: '#/components/parameters/ReviewId'
+    post:
+      operationId: createReplyDraft
+      summary: Get the stored draft, or draft one with the model (outlet manager)
+      description: >-
+        Called when the manager opens a review (Q-007). If a reply exists it is returned
+        with no model call. Otherwise the server claims the reply and asks the gateway for
+        a draft with the current reply prompt version, in the review's language (Q-009).
+        If another request is drafting the same review, the answer is 202 with status
+        drafting and Retry-After; call again. When drafting is unavailable (budget used
+        up, provider credit, provider down, or 45 seconds passed) the claim is released
+        and the manager can write the reply by hand with PUT reply.
+      tags: [reviews]
+      x-story-ids: [US-00-002]
+      x-idempotent: true
+      x-error-codes: { '403': [role_not_allowed], '503': [budget_exhausted, model_unavailable] }
+      responses:
+        '200':
+          description: The reply, stored or just drafted
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/XRequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Reply' }
+        '202':
+          description: Another request is drafting this review; call again after Retry-After seconds
+          headers:
+            Retry-After: { schema: { type: integer, example: 2 } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Reply' }
+              example:
+                status: drafting
+                draft_text: null
+                prompt_version: null
+                reply_text: null
+                edited: false
+                replied_by: null
+                replied_at: null
+                updated_at: '2026-10-04T05:49:58.120Z'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/DraftingUnavailable' }
+
+  /reviews/{review_id}/reply:
+    parameters:
+      - $ref: '#/components/parameters/ReviewId'
+    put:
+      operationId: saveReply
+      summary: Save the reply text (outlet manager)
+      description: >-
+        Saves an edit to the draft, or creates a hand-written reply when there is none
+        (based_on_updated_at null), for example while drafting is unavailable. Refused with
+        409 reply_changed when the reply changed since the client read it, 409
+        draft_in_progress while the model is drafting, and 409 already_replied once the
+        reply is approved: an approved text never changes.
+      tags: [reviews]
+      x-story-ids: [US-00-003, US-00-002]
+      x-error-codes: { '403': [role_not_allowed], '409': [reply_changed, draft_in_progress, already_replied] }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReplySave' }
+      responses:
+        '200':
+          description: The saved reply, with its new updated_at
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/XRequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Reply' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /reviews/{review_id}/replied:
+    parameters:
+      - $ref: '#/components/parameters/ReviewId'
+    post:
+      operationId: markReplied
+      summary: Approve the reply text and mark the review replied (outlet manager)
+      description: >-
+        Approval and marking replied are one action (Q-008). Stores reply_text as the final
+        text with the manager and the time, only if the reply is unchanged since the client
+        read it. Only the manager of the review's outlet may do this; the brand admin gets
+        403 (Q-002). A review already replied is returned unchanged with 200, so a repeat
+        is safe.
+      tags: [reviews]
+      x-story-ids: [US-00-003]
+      x-idempotent: true
+      x-error-codes: { '403': [role_not_allowed], '409': [reply_changed, draft_in_progress] }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReplySave' }
+      responses:
+        '200':
+          description: The replied reply
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/XRequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Reply' }
+              example:
+                status: replied
+                draft_text: Hi Karan, thank you for telling us about your visit on 3 October.
+                prompt_version: 3
+                reply_text: Hi Karan, thank you for telling us about your visit on 3 October. This week we are working with our new floor team.
+                edited: true
+                replied_by: { id: 2, name: Arjun Mehta }
+                replied_at: '2026-10-04T05:50:00Z'
+                updated_at: '2026-10-04T05:50:00Z'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /dashboard/trends:
+    get:
+      operationId: getTrends
+      summary: Weekly rating, sentiment and reply counts per outlet, last 12 complete weeks
+      description: >-
+        One row per outlet the caller may see, one entry per Monday to Sunday week in the
+        brand timezone, oldest first, ending with the latest complete week. Sentiment
+        counts cover tagged reviews only; untagged is the rest.
+      tags: [dashboard]
+      x-story-ids: [US-01-005, US-00-001]
+      responses:
+        '200':
+          description: The trends
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/XRequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Trends' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /dashboard/heatmap:
+    get:
+      operationId: getHeatmap
+      summary: Negative reviews by outlet and theme, last 4 complete weeks
+      description: >-
+        One row per outlet the caller may see and one count per configured theme. A review
+        tagged with two themes counts once under each (Q-021). The cell measure is the
+        number of negative reviews (screen S-03).
+      tags: [dashboard]
+      x-story-ids: [US-01-006, US-00-001]
+      responses:
+        '200':
+          description: The heatmap
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/XRequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Heatmap' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /dashboard/movers:
+    get:
+      operationId: getMovers
+      summary: Biggest movers, latest complete week against the week before
+      description: >-
+        Outlet and theme pairs ranked by the size of the change in the number of negative
+        reviews tagged with that theme (Q-004, Q-005); ties put a rise before a fall, then
+        outlet name, then theme. Pairs with no change are left out. untagged_count is the
+        number of reviews dated in the two weeks still untagged, so the screen can warn
+        that movers may be incomplete.
+      tags: [dashboard]
+      x-story-ids: [US-01-007, US-00-001]
+      responses:
+        '200':
+          description: The movers
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/XRequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Movers' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /tagging/status:
+    get:
+      operationId: getTaggingStatus
+      summary: Untagged count, worker state and budget state
+      description: >-
+        Read by the top bar and the overview banners (budget stop, tagging paused). For an
+        outlet manager, untagged_count covers their outlet only; the worker and budget
+        state are the installation's.
+      tags: [tagging]
+      x-story-ids: [US-01-003, US-02-001, US-01-005]
+      responses:
+        '200':
+          description: The status
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/XRequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaggingStatus' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /digests:
+    post:
+      operationId: createDigest
+      summary: Generate the weekly digest and email it to the brand admin
+      description: >-
+        Generated on demand only (Q-005) for the latest complete Monday to Sunday week
+        against the week before. The digest is recorded as sending before SMTP is called,
+        then sent; one email goes to the brand admin through MailHog (Q-006). A repeat with
+        the same Idempotency-Key returns the recorded digest and never sends again: 201 if
+        it was sent, 202 if it is still marked sending, 502 if it failed. To try again
+        after a failure, use a new key.
+      tags: [digests]
+      x-story-ids: [US-01-009]
+      x-error-codes: { '403': [role_not_allowed], '502': [mail_unavailable] }
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201':
+          description: Sent
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/XRequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Digest' }
+        '202':
+          description: A repeat of a request whose digest is still marked sending; nothing is sent again
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Digest' }
+              example:
+                id: 7
+                status: sending
+                week_start: '2026-09-28'
+                week_end: '2026-10-04'
+                recipient_email: ritika.rao@example.in
+                untagged_count: 0
+                subject: 'Weekly digest, 28 Sep to 4 Oct 2026: Koramangala wait time up 8'
+                body: 'Biggest mover: Koramangala, wait time. Negative reviews 3 to 11.'
+                sent_at: null
+                failure_reason: null
+                created_at: '2026-10-06T05:12:00Z'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '502': { $ref: '#/components/responses/MailUnavailable' }
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: outletowl_session
+      description: Signed JWT naming the user id only, HttpOnly, SameSite=Strict, 8 hours (ADR-0007).
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Client UUID, made once per user action. A repeat with the same key returns the first result and has no second side effect.
+      schema: { type: string, format: uuid }
+      example: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+    Cursor:
+      name: cursor
+      in: query
+      description: Opaque; next_cursor from the previous page.
+      schema: { type: string, maxLength: 200 }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+    ReviewId:
+      name: review_id
+      in: path
+      required: true
+      schema: { type: integer, format: int64, minimum: 1 }
+      example: 1497
+  headers:
+    XRequestId:
+      schema: { type: string }
+      description: Generated request id; the same value is in the error envelope and the server log line.
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      # Every value of error.code the API returns, with its one HTTP status.
+      x-error-codes:
+        - { code: malformed_request, status: 400, meaning: "The body or a parameter could not be parsed, or a filter is not in the spec." }
+        - { code: csv_invalid, status: 400, meaning: "The upload is not a readable CSV or lacks a required column; nothing was imported. details names the column." }
+        - { code: unauthorized, status: 401, meaning: "No session cookie, or an invalid or expired one; sign in again." }
+        - { code: invalid_credentials, status: 401, meaning: "Email and password do not match an active account." }
+        - { code: role_not_allowed, status: 403, meaning: "The caller can see the record but their role may not take this action (a manager adding an outlet, the brand admin drafting or replying)." }
+        - { code: not_found, status: 404, meaning: "No such record, or it belongs to an outlet the caller may not see." }
+        - { code: outlet_name_taken, status: 409, meaning: "An outlet with this name, ignoring capitals, already exists; details names it." }
+        - { code: reply_changed, status: 409, meaning: "The reply changed since the client read it; reload it and apply the change again." }
+        - { code: draft_in_progress, status: 409, meaning: "The model is still drafting this reply; wait and reload." }
+        - { code: already_replied, status: 409, meaning: "The reply is approved and its text can no longer change." }
+        - { code: file_too_large, status: 413, meaning: "The CSV file is over 5 MB; split it into smaller files." }
+        - { code: unsupported_media_type, status: 415, meaning: "The body is not application/json, or the import is not multipart/form-data." }
+        - { code: validation_failed, status: 422, meaning: "A field breaks a rule (blank, too long, unknown theme); details names the field." }
+        - { code: internal, status: 500, meaning: "Unexpected failure; quote request_id." }
+        - { code: mail_unavailable, status: 502, meaning: "MailHog did not accept the digest; start MailHog and generate again with a new key." }
+        - { code: budget_exhausted, status: 503, meaning: "The model budget is used up (over USD 8, or the provider's credit limit); drafting is unavailable, write the reply by hand." }
+        - { code: model_unavailable, status: 503, meaning: "The model did not answer within 45 seconds or returned an error; write the reply by hand or try later." }
+        - { code: database_unavailable, status: 503, meaning: "The server cannot reach PostgreSQL." }
+      properties:
+        error:
+          type: object
+          required: [code, message, request_id]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details:
+              type: array
+              items:
+                type: object
+                required: [field, reason]
+                properties:
+                  field: { type: string }
+                  reason: { type: string }
+            request_id: { type: string }
+      example:
+        error:
+          code: validation_failed
+          message: reply_text must not be blank
+          details: [{ field: reply_text, reason: blank }]
+          request_id: req_01J9Z6
+    Page:
+      type: object
+      required: [next_cursor, has_more]
+      properties:
+        next_cursor: { type: [string, 'null'] }
+        has_more: { type: boolean }
+      example: { next_cursor: eyJkIjoiMjAyNi0xMC0wMyIsImlkIjoxNDk3fQ, has_more: true }
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [ok] }
+      example: { status: ok }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      additionalProperties: false
+      properties:
+        email: { type: string, format: email, maxLength: 200 }
+        password: { type: string, minLength: 1, maxLength: 200 }
+      example: { email: arjun.mehta@example.in, password: correct-horse-battery }
+    UserRef:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+      example: { id: 2, name: Arjun Mehta }
+    OutletRef:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+      example: { id: 1, name: Koramangala }
+    Me:
+      type: object
+      required: [id, email, name, role, outlet, brand]
+      properties:
+        id: { type: integer, format: int64 }
+        email: { type: string, format: email }
+        name: { type: string }
+        role: { type: string, enum: [brand_admin, outlet_manager] }
+        outlet:
+          description: The manager's one outlet; null for the brand admin.
+          oneOf:
+            - $ref: '#/components/schemas/OutletRef'
+            - type: 'null'
+        brand:
+          type: object
+          required: [name, timezone]
+          description: From configuration; one brand per installation (Q-001).
+          properties:
+            name: { type: string }
+            timezone: { type: string, description: "IANA zone that bounds the Monday to Sunday weeks." }
+      example:
+        id: 2
+        email: arjun.mehta@example.in
+        name: Arjun Mehta
+        role: outlet_manager
+        outlet: { id: 1, name: Koramangala }
+        brand: { name: Neem Tree Kitchens, timezone: Asia/Kolkata }
+    OutletSummary:
+      type: object
+      required: [id, name, managers, review_count, untagged_count, created_at]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        managers:
+          type: array
+          description: Active outlet managers; empty means nobody can reply to this outlet's reviews yet.
+          items: { $ref: '#/components/schemas/UserRef' }
+        review_count: { type: integer, minimum: 0 }
+        untagged_count: { type: integer, minimum: 0 }
+        created_at: { type: string, format: date-time }
+      example:
+        id: 6
+        name: Electronic City
+        managers: []
+        review_count: 0
+        untagged_count: 0
+        created_at: '2026-10-06T05:00:00Z'
+    OutletCreate:
+      type: object
+      required: [name]
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200, description: "Trimmed before it is stored." }
+      example: { name: Electronic City }
+    ImportUpload:
+      type: object
+      required: [file]
+      properties:
+        file:
+          type: string
+          contentMediaType: text/csv
+          description: >-
+            UTF-8 CSV, at most 5 MB, with a header row naming outlet, source, date, rating,
+            text and reviewer_name. date is YYYY-MM-DD; rating is a whole number 1 to 5;
+            text up to 5,000 characters; outlet, source and reviewer_name up to 200.
+      example: { file: "outlet,source,date,rating,text,reviewer_name" }
+    ImportRejection:
+      type: object
+      required: [row_number, reason]
+      properties:
+        row_number: { type: integer, minimum: 1, description: "Row in the file as a spreadsheet numbers it; the header is row 1." }
+        reason: { type: string }
+      example: { row_number: 118, reason: 'Rating is "4.5"; ratings must be a whole number from 1 to 5.' }
+    ImportResult:
+      type: object
+      required: [id, file_name, imported_count, duplicate_count, rejected_count, rejections, created_at]
+      properties:
+        id: { type: integer, format: int64 }
+        file_name: { type: string, maxLength: 200 }
+        imported_count: { type: integer, minimum: 0 }
+        duplicate_count: { type: integer, minimum: 0, description: "Rows already imported, counted and not stored." }
+        rejected_count: { type: integer, minimum: 0 }
+        rejections:
+          type: array
+          description: Every rejected row, in row order.
+          items: { $ref: '#/components/schemas/ImportRejection' }
+        created_at: { type: string, format: date-time }
+      example:
+        id: 12
+        file_name: reviews-sept.csv
+        imported_count: 479
+        duplicate_count: 14
+        rejected_count: 3
+        rejections:
+          - { row_number: 37, reason: 'Unknown outlet "Koramangla". Check the spelling against your outlet names.' }
+          - { row_number: 118, reason: 'Rating is "4.5"; ratings must be a whole number from 1 to 5.' }
+          - { row_number: 240, reason: Date is empty. }
+        created_at: '2026-10-06T05:10:00Z'
+    Theme:
+      type: object
+      required: [code, label]
+      properties:
+        code: { type: string, pattern: '^[a-z][a-z0-9_]*$' }
+        label: { type: string }
+      example: { code: wait_time, label: Wait time }
+    Sentiment:
+      type: string
+      enum: [positive, neutral, negative]
+      example: negative
+    Tags:
+      type: object
+      required: [themes, sentiment, is_urgent, prompt_version]
+      properties:
+        themes:
+          type: array
+          description: Zero, one or several theme codes (Q-021).
+          items: { type: string }
+        sentiment: { $ref: '#/components/schemas/Sentiment' }
+        is_urgent: { type: boolean, description: "Food safety, harassment or a legal threat (REQ-010)." }
+        prompt_version: { type: integer, minimum: 1, description: "The tagging prompt version that produced these tags (Q-011)." }
+      example: { themes: [wait_time, staff], sentiment: negative, is_urgent: false, prompt_version: 2 }
+    ReviewSummary:
+      type: object
+      required: [id, outlet, source, review_date, rating, review_text, reviewer_name, tags, reply_status]
+      properties:
+        id: { type: integer, format: int64 }
+        outlet: { $ref: '#/components/schemas/OutletRef' }
+        source: { type: string }
+        review_date: { type: string, format: date, description: "Calendar date in the brand timezone." }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        review_text: { type: string, description: "Shown as plain text, never as markup (tenet 6)." }
+        reviewer_name: { type: string }
+        tags:
+          description: Null while the review is untagged.
+          oneOf:
+            - $ref: '#/components/schemas/Tags'
+            - type: 'null'
+        reply_status: { type: string, enum: [none, drafting, draft, replied] }
+      example:
+        id: 1488
+        outlet: { id: 5, name: Jayanagar }
+        source: Google
+        review_date: '2026-10-02'
+        rating: 1
+        review_text: खाने में कीड़ा मिला और रात को मेरे बेटे का पेट खराब हो गया।
+        reviewer_name: Sunita Verma
+        tags: { themes: [food, cleanliness], sentiment: negative, is_urgent: true, prompt_version: 2 }
+        reply_status: none
+    Reply:
+      type: object
+      required: [status, draft_text, prompt_version, reply_text, edited, replied_by, replied_at, updated_at]
+      properties:
+        status: { type: string, enum: [drafting, draft, replied] }
+        draft_text: { type: [string, 'null'], description: "What the model drafted; null while drafting or for a hand-written reply." }
+        prompt_version: { type: [integer, 'null'], description: "The reply prompt version that drafted it." }
+        reply_text: { type: [string, 'null'], description: "The text the manager edits and approves; starts as the draft." }
+        edited: { type: boolean, description: "True when reply_text differs from draft_text." }
+        replied_by:
+          description: The manager who approved it.
+          oneOf:
+            - $ref: '#/components/schemas/UserRef'
+            - type: 'null'
+        replied_at: { type: [string, 'null'], format: date-time }
+        updated_at: { type: string, format: date-time, description: "Send it back as based_on_updated_at on the next save or mark replied." }
+      example:
+        status: draft
+        draft_text: Hi Karan, thank you for telling us about your visit on 3 October.
+        prompt_version: 3
+        reply_text: Hi Karan, thank you for telling us about your visit on 3 October.
+        edited: false
+        replied_by: null
+        replied_at: null
+        updated_at: '2026-10-04T05:41:07.512Z'
+    ReplySave:
+      type: object
+      required: [reply_text, based_on_updated_at]
+      additionalProperties: false
+      properties:
+        reply_text: { type: string, minLength: 1, maxLength: 5000 }
+        based_on_updated_at:
+          type: [string, 'null']
+          format: date-time
+          description: The reply's updated_at as the client last read it; null when the client saw no reply.
+      example:
+        reply_text: Hi Karan, thank you for telling us about your visit on 3 October. This week we are working with our new floor team.
+        based_on_updated_at: '2026-10-04T05:41:07.512Z'
+    ReviewDetail:
+      allOf:
+        - $ref: '#/components/schemas/ReviewSummary'
+        - type: object
+          required: [reply, outlet_managers, can_reply]
+          properties:
+            reply:
+              description: Null until a manager opens the review or writes a reply.
+              oneOf:
+                - $ref: '#/components/schemas/Reply'
+                - type: 'null'
+            outlet_managers:
+              type: array
+              description: Who may reply; empty means nobody is assigned to this outlet.
+              items: { $ref: '#/components/schemas/UserRef' }
+            can_reply: { type: boolean, description: "True only for an active manager of this review's outlet." }
+      example:
+        id: 1497
+        outlet: { id: 1, name: Koramangala }
+        source: Google
+        review_date: '2026-10-03'
+        rating: 2
+        review_text: Waited 50 minutes for a table even with a booking, and the food took another 30.
+        reviewer_name: Karan Malhotra
+        tags: { themes: [wait_time, staff, food], sentiment: negative, is_urgent: false, prompt_version: 2 }
+        reply_status: draft
+        reply:
+          status: draft
+          draft_text: Hi Karan, thank you for telling us about your visit on 3 October.
+          prompt_version: 3
+          reply_text: Hi Karan, thank you for telling us about your visit on 3 October.
+          edited: false
+          replied_by: null
+          replied_at: null
+          updated_at: '2026-10-04T05:41:07.512Z'
+        outlet_managers: [{ id: 2, name: Arjun Mehta }]
+        can_reply: true
+    Week:
+      type: object
+      required: [start, end]
+      properties:
+        start: { type: string, format: date, description: "Monday." }
+        end: { type: string, format: date, description: "Sunday." }
+      example: { start: '2026-09-28', end: '2026-10-04' }
+    TrendWeek:
+      type: object
+      required: [week_start, review_count, average_rating, positive, neutral, negative, untagged, replied]
+      properties:
+        week_start: { type: string, format: date }
+        review_count: { type: integer, minimum: 0 }
+        average_rating: { type: [number, 'null'], description: "Mean of the week's ratings to one decimal; null with no reviews." }
+        positive: { type: integer, minimum: 0 }
+        neutral: { type: integer, minimum: 0 }
+        negative: { type: integer, minimum: 0 }
+        untagged: { type: integer, minimum: 0 }
+        replied: { type: integer, minimum: 0, description: "Reviews of that week marked replied." }
+      example: { week_start: '2026-09-28', review_count: 21, average_rating: 3.4, positive: 6, neutral: 4, negative: 11, untagged: 0, replied: 9 }
+    Trends:
+      type: object
+      required: [weeks, outlets]
+      properties:
+        weeks:
+          type: array
+          description: The 12 week starts, oldest first.
+          items: { type: string, format: date }
+        outlets:
+          type: array
+          items:
+            type: object
+            required: [outlet, weeks]
+            properties:
+              outlet: { $ref: '#/components/schemas/OutletRef' }
+              weeks:
+                type: array
+                items: { $ref: '#/components/schemas/TrendWeek' }
+      example:
+        weeks: ['2026-07-13', '2026-07-20', '2026-07-27', '2026-08-03', '2026-08-10', '2026-08-17', '2026-08-24', '2026-08-31', '2026-09-07', '2026-09-14', '2026-09-21', '2026-09-28']
+        outlets:
+          - outlet: { id: 1, name: Koramangala }
+            weeks:
+              - { week_start: '2026-09-21', review_count: 12, average_rating: 4.1, positive: 7, neutral: 2, negative: 3, untagged: 0, replied: 12 }
+              - { week_start: '2026-09-28', review_count: 21, average_rating: 3.4, positive: 6, neutral: 4, negative: 11, untagged: 0, replied: 9 }
+    Heatmap:
+      type: object
+      required: [period, themes, rows, untagged_count]
+      properties:
+        period:
+          type: object
+          required: [start, end]
+          properties:
+            start: { type: string, format: date }
+            end: { type: string, format: date }
+        themes:
+          type: array
+          items: { $ref: '#/components/schemas/Theme' }
+        rows:
+          type: array
+          items:
+            type: object
+            required: [outlet, counts, total]
+            properties:
+              outlet: { $ref: '#/components/schemas/OutletRef' }
+              counts:
+                type: object
+                description: Negative reviews per theme code; every configured theme is present.
+                additionalProperties: { type: integer, minimum: 0 }
+              total: { type: integer, minimum: 0, description: "Sum of the outlet's theme counts, as the screen's Total column shows." }
+        untagged_count: { type: integer, minimum: 0, description: "Reviews in the period still untagged." }
+      example:
+        period: { start: '2026-09-07', end: '2026-10-04' }
+        themes: [{ code: food, label: Food }, { code: wait_time, label: Wait time }]
+        rows:
+          - outlet: { id: 1, name: Koramangala }
+            counts: { food: 7, wait_time: 19 }
+            total: 26
+        untagged_count: 0
+    Mover:
+      type: object
+      required: [outlet, theme, previous_count, current_count, change]
+      properties:
+        outlet: { $ref: '#/components/schemas/OutletRef' }
+        theme: { $ref: '#/components/schemas/Theme' }
+        previous_count: { type: integer, minimum: 0 }
+        current_count: { type: integer, minimum: 0 }
+        change: { type: integer, description: "current_count minus previous_count." }
+      example:
+        outlet: { id: 1, name: Koramangala }
+        theme: { code: wait_time, label: Wait time }
+        previous_count: 3
+        current_count: 11
+        change: 8
+    Movers:
+      type: object
+      required: [week, previous_week, review_count, untagged_count, movers]
+      properties:
+        week: { $ref: '#/components/schemas/Week' }
+        previous_week: { $ref: '#/components/schemas/Week' }
+        review_count: { type: integer, minimum: 0, description: "Reviews dated in the latest complete week." }
+        untagged_count: { type: integer, minimum: 0, description: "Reviews dated in the two weeks still untagged." }
+        movers:
+          type: array
+          items: { $ref: '#/components/schemas/Mover' }
+      example:
+        week: { start: '2026-09-28', end: '2026-10-04' }
+        previous_week: { start: '2026-09-21', end: '2026-09-27' }
+        review_count: 66
+        untagged_count: 0
+        movers:
+          - outlet: { id: 1, name: Koramangala }
+            theme: { code: wait_time, label: Wait time }
+            previous_count: 3
+            current_count: 11
+            change: 8
+    TaggingStatus:
+      type: object
+      required: [untagged_count, worker, budget]
+      properties:
+        untagged_count: { type: integer, minimum: 0 }
+        worker:
+          type: string
+          enum: [idle, running, paused]
+          description: paused when the operator switched TAGGING_ENABLED off.
+        budget:
+          type: object
+          required: [state, spent_minor, limit_minor, currency]
+          properties:
+            state:
+              type: string
+              enum: [ok, budget_exhausted, provider_credit_exhausted]
+              description: Anything but ok means tagging and drafting have stopped.
+            spent_minor: { type: integer, minimum: 0, description: "Running total in cents, rounded up." }
+            limit_minor: { type: integer, description: "The USD 8.00 stop, 800 cents." }
+            currency: { type: string, enum: [USD] }
+      example:
+        untagged_count: 5
+        worker: idle
+        budget: { state: budget_exhausted, spent_minor: 803, limit_minor: 800, currency: USD }
+    Digest:
+      type: object
+      required: [id, status, week_start, week_end, recipient_email, untagged_count, subject, body, sent_at, failure_reason, created_at]
+      properties:
+        id: { type: integer, format: int64 }
+        status: { type: string, enum: [sending, sent, failed] }
+        week_start: { type: string, format: date }
+        week_end: { type: string, format: date }
+        recipient_email: { type: string, format: email }
+        untagged_count: { type: integer, minimum: 0, description: "When above 0 the email's first line says movers and urgent reviews may be incomplete." }
+        subject: { type: string }
+        body: { type: string, description: "The plain-text email as sent." }
+        sent_at: { type: [string, 'null'], format: date-time }
+        failure_reason: { type: [string, 'null'] }
+        created_at: { type: string, format: date-time }
+      example:
+        id: 7
+        status: sent
+        week_start: '2026-09-28'
+        week_end: '2026-10-04'
+        recipient_email: ritika.rao@example.in
+        untagged_count: 0
+        subject: 'Weekly digest, 28 Sep to 4 Oct 2026: Koramangala wait time up 8'
+        body: 'Biggest mover: Koramangala, wait time. Negative reviews 3 to 11.'
+        sent_at: '2026-10-06T05:12:03Z'
+        failure_reason: null
+        created_at: '2026-10-06T05:12:00Z'
+  responses:
+    BadRequest:
+      description: Malformed request, or an unreadable CSV
+      x-error-codes: [malformed_request, csv_invalid]
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { code: csv_invalid, message: 'The file has no reviewer_name column.', details: [{ field: reviewer_name, reason: missing column }], request_id: req_01J9Z7 } }
+    Unauthorized:
+      description: No session, or an expired one
+      x-error-codes: [unauthorized]
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { code: unauthorized, message: Sign in again., request_id: req_01J9Z8 } }
+    InvalidCredentials:
+      description: Wrong email or password
+      x-error-codes: [invalid_credentials]
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { code: invalid_credentials, message: Email or password is wrong., request_id: req_01J9Z9 } }
+    Forbidden:
+      description: The caller's role may not take this action
+      x-error-codes: [role_not_allowed]
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { code: role_not_allowed, message: Only the outlet's manager can mark this review replied., request_id: req_01J9ZA } }
+    NotFound:
+      description: No such record for this caller
+      x-error-codes: [not_found]
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { code: not_found, message: Review not found., request_id: req_01J9ZB } }
+    Conflict:
+      description: The record's state does not allow this write
+      x-error-codes: [outlet_name_taken, reply_changed, draft_in_progress, already_replied]
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { code: reply_changed, message: This reply changed since you opened it. Reload to see the newer text., request_id: req_01J9ZC } }
+    FileTooLarge:
+      description: The upload is over 5 MB
+      x-error-codes: [file_too_large]
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { code: file_too_large, message: The file is over 5 MB. Split it into smaller files., request_id: req_01J9ZD } }
+    UnsupportedMediaType:
+      description: Wrong Content-Type
+      x-error-codes: [unsupported_media_type]
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { code: unsupported_media_type, message: Send application/json., request_id: req_01J9ZE } }
+    ValidationFailed:
+      description: Valid shape, but a field breaks a rule
+      x-error-codes: [validation_failed]
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { code: validation_failed, message: reply_text must not be blank, details: [{ field: reply_text, reason: blank }], request_id: req_01J9ZF } }
+    InternalError:
+      description: Unexpected failure; request_id is in the body
+      x-error-codes: [internal]
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { code: internal, message: Something failed on our side. Quote the request id., request_id: req_01J9ZG } }
+    MailUnavailable:
+      description: MailHog did not accept the digest; it is recorded as failed
+      x-error-codes: [mail_unavailable]
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { code: mail_unavailable, message: The mail catcher (MailHog) did not answer. Start MailHog and generate the digest again., request_id: req_01J9ZH } }
+    DraftingUnavailable:
+      description: The model cannot draft now; the manager can write the reply by hand
+      x-error-codes: [budget_exhausted, model_unavailable]
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { code: budget_exhausted, message: Drafting is unavailable. The model budget is used up. Write the reply yourself., request_id: req_01J9ZJ } }
+    DatabaseUnavailable:
+      description: PostgreSQL cannot be reached
+      x-error-codes: [database_unavailable]
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { code: database_unavailable, message: The database is not reachable., request_id: req_01J9ZK } }
