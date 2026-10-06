@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: OutletOwl API
-  version: 1.0.0
+  version: 1.1.0
   description: |
     The REST API the OutletOwl web UI calls: sign-in, outlets, CSV import, the review
     list and replies, the dashboard reports, tagging status and the weekly digest. One
@@ -354,7 +354,7 @@ paths:
                     rating: 2
                     review_text: Waited 50 minutes for a table even with a booking, and the food took another 30.
                     reviewer_name: Karan Malhotra
-                    tags: { themes: [wait_time, staff, food], sentiment: negative, is_urgent: false, prompt_version: 2 }
+                    tags: { themes: [wait_time, staff, food], sentiment: negative, is_urgent: false, urgent_reasons: [], prompt_version: 2 }
                     reply_status: draft
                 page: { next_cursor: eyJkIjoiMjAyNi0xMC0wMyIsImlkIjoxNDk3fQ, has_more: true }
                 total: 1500
@@ -879,16 +879,22 @@ components:
       example: negative
     Tags:
       type: object
-      required: [themes, sentiment, is_urgent, prompt_version]
+      required: [themes, sentiment, is_urgent, urgent_reasons, prompt_version]
       properties:
         themes:
           type: array
           description: Zero, one or several theme codes (Q-021).
           items: { type: string }
         sentiment: { $ref: '#/components/schemas/Sentiment' }
-        is_urgent: { type: boolean, description: "Food safety, harassment or a legal threat (REQ-010)." }
+        is_urgent: { type: boolean, description: "Food safety, harassment or a legal threat (REQ-010); true exactly when urgent_reasons is not empty. The one exception: rows tagged before the fallback migration 00005, if it is ever used (data model v2 section 8), can be urgent with no reason, and the UI then shows Urgent with no kind." }
+        urgent_reasons:
+          type: array
+          description: "Why the review is urgent, shown beside it on screens S-02, S-04, S-05 and S-08 and in the digest; the screens show each reason. Several allowed, none repeated, returned in the fixed order food_safety, harassment, legal_threat; empty when not urgent (data model v2)."
+          uniqueItems: true
+          maxItems: 3
+          items: { type: string, enum: [food_safety, harassment, legal_threat] }
         prompt_version: { type: integer, minimum: 1, description: "The tagging prompt version that produced these tags (Q-011)." }
-      example: { themes: [wait_time, staff], sentiment: negative, is_urgent: false, prompt_version: 2 }
+      example: { themes: [wait_time, staff], sentiment: negative, is_urgent: false, urgent_reasons: [], prompt_version: 2 }
     ReviewSummary:
       type: object
       required: [id, outlet, source, review_date, rating, review_text, reviewer_name, tags, reply_status]
@@ -914,7 +920,7 @@ components:
         rating: 1
         review_text: खाने में कीड़ा मिला और रात को मेरे बेटे का पेट खराब हो गया।
         reviewer_name: Sunita Verma
-        tags: { themes: [food, cleanliness], sentiment: negative, is_urgent: true, prompt_version: 2 }
+        tags: { themes: [food, cleanliness], sentiment: negative, is_urgent: true, urgent_reasons: [food_safety], prompt_version: 2 }
         reply_status: none
     Reply:
       type: object
@@ -978,7 +984,7 @@ components:
         rating: 2
         review_text: Waited 50 minutes for a table even with a booking, and the food took another 30.
         reviewer_name: Karan Malhotra
-        tags: { themes: [wait_time, staff, food], sentiment: negative, is_urgent: false, prompt_version: 2 }
+        tags: { themes: [wait_time, staff, food], sentiment: negative, is_urgent: false, urgent_reasons: [], prompt_version: 2 }
         reply_status: draft
         reply:
           status: draft
