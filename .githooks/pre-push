@@ -57,7 +57,9 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   dest="${dest:-$rbranch}"; pushed_shas="$pushed_shas $local_sha"
   hook_note "$local_ref -> $remote_ref: $n new commit message(s) checked"
 done
-[ "$refs" -gt 0 ] || hook_fail "git handed the hook 0 refs; nothing checked"
+# Zero refs means git has nothing to send (the branch is already up to date
+# on the remote); there is nothing to check and nothing leaves the machine.
+[ "$refs" -gt 0 ] || { hook_note "nothing to push (the remote is up to date); nothing checked"; exit 0; }
 [ "$checked" -gt 0 ] || { hook_note "$refs ref(s), none a branch update; gate not needed"; exit 0; }
 
 # Confirmation (lib.sh PUSH_CONFIRM). The engineer pushes; a coding agent
