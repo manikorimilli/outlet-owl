@@ -1,6 +1,6 @@
 # Data model: Review Intelligence (OutletOwl)
 
-**Store:** PostgreSQL · **Tables:** 9 · **Columns:** 70 · **Indexes:** 10 · **Personal-data columns:** 8
+**Store:** PostgreSQL · **Tables:** 9 · **Columns:** 71 · **Indexes:** 10 · **Personal-data columns:** 8
 
 One PostgreSQL database holds everything the product remembers: outlets, accounts loaded from the users file, CSV imports and their rejected rows, reviews, the one tag result per review, the one reply per review, generated digests, and the model call log that is the USD 8 running total. The Go server (API, tagging worker, model gateway, digest builder) and the seed, eval and tone-check commands read and write it through sqlc queries (ADR-0003). It is small by design: tens of thousands of rows at most (HLD section 8), so a few b-tree indexes serve every screen and nothing else is needed.
 
@@ -9,7 +9,18 @@ One PostgreSQL database holds everything the product remembers: outlets, account
 - ADRs: PostgreSQL is fixed by the PRD (section 6) and ADR-0003; no store ADR is needed
 - Stores: postgres
 - Companion files: `docs/design/schema.sql`, `docs/design/data-dictionary.csv`, `docs/design/erd.md`
-- Author: manikorimilli, 2026-10-06. Status: Draft. Version: v1
+- Author: manikorimilli, 2026-10-06. Status: Draft. Version: v2 (base: v1, commit 88dec6b)
+
+## Changes from v1
+
+Why this revision: the product owner approved on 2026-10-06 storing why a review is urgent, because the approved screens S-02, S-04 and S-08 and the digest show the reason beside each urgent review, and v1 stored only a yes or no flag (decision recorded in docs/genai/review-classification-and-replies-solution.md; ADR-0008 stays Proposed).
+
+| Section | Change | Driven by | Impact |
+| --- | --- | --- | --- |
+| 4. PostgreSQL tables (`review_tags`) | New column `urgent_reasons text[]`, limited to `food_safety`, `harassment`, `legal_threat`; `is_urgent` must be true exactly when it is not empty; reasons cannot repeat | REQ-010; screens S-02, S-04, S-08; product owner approval, 2026-10-06 | schema.sql, data-dictionary.csv, erd.md; OpenAPI `Tags` needs `urgent_reasons` (openapi-spec revision) |
+| 5. Writers, claims and derived rows | The tagging writer stores the urgent reasons from the result line | genai solution section 4.1 | low-level-design for the tagging worker |
+| 6. Enumerations | New closed value set `urgent_reasons` (a CHECK, not an enum type) | REQ-010 | none beyond the above |
+| 8. Migration plan | The column joins planned migration 00002; a fallback 00005, with its Down and deploy order, is named if 00002 is already applied | no migration exists yet (`db/migrations/` absent, checked 2026-10-06) | db-migration |
 - Decided by the product owner for this model, 2026-10-06: all six CSV fields are required; ratings are whole stars from 1 to 5; an outlet may have several managers; personal data is kept, with no automatic deletion.
 
 Not covered: US-01-010 (tenant colours, stretch) stores nothing; REQ-044 to REQ-049 are interface requirements with no data.
@@ -206,7 +217,8 @@ Serves US-01-003, US-01-004, US-01-005 to US-01-009, US-02-002. Expected volume:
 | `review_id` | `bigint` | No | PK FK reviews.id (CASCADE) |  | The review the result line named; one result per review. | REQ-011 and AC-US-01-003-6: one stored result per review, never re-tagged; ADR-0006: no row means untagged. |
 | `themes` | `text[]` | No |  |  | Theme codes from the configured list; zero, one or several. | AC-US-01-003-2 and Q-021: zero, one or several themes from the list; AC-US-01-006-2 counts each theme once. |
 | `sentiment` | `sentiment` | No |  |  | One label: positive, neutral or negative. | AC-US-01-003-4 and Q-013: one sentiment label per review. |
-| `is_urgent` | `boolean` | No |  |  | True when the review concerns food safety, harassment or a legal threat. | REQ-010 and AC-US-01-003-5; AC-US-01-008-3 and AC-US-01-009-4 list urgent reviews. |
+| `is_urgent` | `boolean` | No |  |  | True when the review concerns food safety, harassment or a legal threat; true exactly when urgent_reasons is not empty. | REQ-010 and AC-US-01-003-5; AC-US-01-008-3 and AC-US-01-009-4 list urgent reviews. |
+| `urgent_reasons` | `text[]` | No |  | `'{}'` | Why the review is urgent: food_safety, harassment, legal_threat; several allowed, none repeated, empty when not urgent. | REQ-010 names the three reasons; screens S-02, S-04 and S-08 and the digest show the reason beside each urgent review; stored per reason and several allowed (product owner, 2026-10-06). |
 | `prompt_version` | `integer` | No |  |  | Number of the tagging prompt version that produced this result. | AC-US-02-002-2 and Q-011: a stored tag names the prompt version that produced it. |
 | `created_at` | `timestamptz` | No |  | `now()` | When the result was stored. | Rule: audit columns; a result is never changed, so there is no updated_at. |
 
@@ -214,6 +226,13 @@ Serves US-01-003, US-01-004, US-01-005 to US-01-009, US-02-002. Expected volume:
 
 - `chk_review_tags_themes_no_nulls`: `array_position(themes, NULL) IS NULL`. Refuses a null theme, which the heatmap could not place in a column.
 - `chk_review_tags_prompt_version_positive`: `prompt_version >= 1`. Versions are numbered from v1 (Q-011).
+- `chk_review_tags_urgent_matches_reasons`: `is_urgent = (cardinality(urgent_reasons) > 0)`. Refuses a review flagged urgent with no reason to show, and a review that has a reason but is missing from the urgent filter, the urgent count and the digest (AC-US-01-008-3, AC-US-01-009-4).
+- `chk_review_tags_urgent_reasons_allowed`: `urgent_reasons <@ ARRAY['food_safety', 'harassment', 'legal_threat']`. Refuses a reason the screens and the digest have no label for.
+- `chk_review_tags_urgent_reasons_distinct`: no null and no reason twice. Refuses a list such as `{food_safety, food_safety}`, which would count one urgent review twice in a per-reason report.
+
+`urgent_reasons` is `text[]` with a CHECK, not an array of an enum type, for the same reason `themes` is: pgx v5 reads and writes `text[]` with no setup, while an array of a custom enum has to be registered on every connection first (ADR-0003). The set is still closed by the CHECK.
+
+`is_urgent` stays a stored column rather than a generated one, so the urgent filter and count keep reading one boolean. Once `chk_review_tags_urgent_matches_reasons` is validated, the two cannot disagree on any row; section 8 names the one case where it is not yet validated.
 
 The database cannot check theme codes against the configured list, because the list is configuration that a developer changes while old tags are kept (Q-012). The validator rejects any code not in the list before storing (AC-US-01-004-3); see the open concerns.
 
@@ -318,7 +337,7 @@ Every path that writes a table, and where each NOT NULL value comes from:
 | users | users file upsert at server start; the seed's own upsert of the file it writes | every column from the file line; `removed_at` set for emails no longer in the file and cleared for emails back in it |
 | imports, import_rejections | CSV connector, in one transaction with the reviews | request id from the client; counts start at 0 and are set from the row checks before commit |
 | reviews | CSV connector; seed command | all six CSV fields, all required; the seed generates all six; `import_id` null for the seed |
-| review_tags | tagging worker; seed command (same validator, same advisory lock) | the validated result line and the current tagging prompt version |
+| review_tags | tagging worker; seed command (same validator, same advisory lock) | the validated result line (themes, sentiment, urgent reasons; `is_urgent` set from whether any reason is present) and the current tagging prompt version |
 | replies | draft claim; draft lands; hand-written reply; edit; mark replied | status from the step; draft and version from the gateway; text from the manager; `replied_by` from the signed-in user |
 | digests | digest builder | week, count, subject and body computed before the claim; recipient from the active brand admin |
 | model_calls | model gateway (reserve, settle, fail); start-up reconciliation in the server only | model, prompt version and worst-case price before each HTTP attempt; tokens and `usage.cost` after it; for reconciliation, the difference and zero tokens |
@@ -356,6 +375,7 @@ Time: review dates and `digests.week_start` are calendar dates. Weeks are comput
 | `user_role` | `brand_admin`, `outlet_manager` | The two personas (PRD section 4, Q-002); a new role is a migration and a change to every outlet-scope query. |
 | `sentiment` | `positive`, `neutral`, `negative` | One label per review (Q-013); fixed by the decision, used by trends, the movers' negative count and the list filter. |
 | `reply_status` | `drafting`, `draft`, `replied` | Q-008 makes approval and marking replied one action, so there is no `approved` state; `drafting` is the claim (HLD flow B). |
+| `review_tags.urgent_reasons` (CHECK, not an enum type) | `food_safety`, `harassment`, `legal_threat` | The three urgent categories REQ-010 names, each shown on screen and in the digest. A new reason is a migration that rewrites both `chk_review_tags_urgent_reasons_allowed` and `chk_review_tags_urgent_reasons_distinct` (each names the values), plus a new tagging prompt version. |
 | `digest_status` | `sending`, `sent`, `failed` | The claim-before-send states (HLD flow C, section 7). |
 | `budget.model_call_purpose` | `tagging`, `drafting`, `evaluation`, `tone_check`, `reconciliation` | Every caller of the gateway (AC-US-02-001-1) plus the start-up adjustment; a new caller is a migration in the budget set. |
 | `budget.model_call_outcome` | `reserved`, `settled`, `failed` | The reserve-then-settle lifecycle (HLD section 3). |
@@ -383,6 +403,15 @@ goose SQL migrations under `db/migrations/` as ADR-0003 lays out; the repository
 | 2 | 00002_create_imports_reviews_and_tags (`sentiment`, `imports`, `import_rejections`, `reviews`, `review_tags`, their indexes) | expand; HLD build phase 3 | no | new tables, none |
 | 3 | 00003_create_replies (`reply_status`, `replies`) | expand; HLD build phase 5 | no | new table, none |
 | 4 | 00004_create_digests (`digest_status`, `digests`) | expand; HLD build phase 6 | no | new table, none |
+
+`urgent_reasons` and its three constraints are part of migration 2, because no migration has been written or applied yet.
+
+If migration 2 is already applied when this reaches the build, the change ships instead as 00005_add_review_tags_urgent_reasons, in the same deploy as the tagging worker that writes reasons, never before it. A CHECK added `NOT VALID` still refuses new rows, so a worker that does not write reasons would have every urgent result refused and retried.
+- Up: add the column with its constant default `'{}'` (metadata only), then the three CHECKs, `chk_review_tags_urgent_matches_reasons` added `NOT VALID` and the other two validated at once (every existing list is empty, so they pass).
+- Validate: `VALIDATE CONSTRAINT chk_review_tags_urgent_matches_reasons` only once no row has `is_urgent` true with an empty list. On demo data, that means a seed reset and a seed run in record mode (about USD 0.57, HLD section 8). On real data, REQ-011 forbids re-tagging, so the constraint stays `NOT VALID` for old rows, which keep `is_urgent` true with no reason, unless the product owner decides otherwise.
+- Down: drop the three constraints, then the column.
+
+`review_tags` stays far below the hot-table size, so there is no lock risk.
 
 HLD build phase 4 (dashboard and search) needs no migration: its one index, `idx_reviews_outlet_id_review_date`, is created with the table in migration 2.
 
@@ -469,6 +498,16 @@ A name with trailing spaces passed the unique index; the budget set's missing Do
 2. "Replayed calls write nothing, so tests leave the total unchanged": true only on a database created for the test run (section 12).
 3. "The seed tags under the same advisory lock": now the lock is taken before the truncate (section 5).
 
+### Review of v2 (urgent reasons)
+
+Reviewed by: critic, 2026-10-06, on the changed sections only. Findings: BLOCKER 0, MAJOR 0, MINOR 4, NIT 1 (open 0).
+
+- **MINOR: the fallback 00005 could not finish its own validate step and would break a worker that writes no reasons.** Fix: section 8 now ships 00005 with the reason-writing worker, names its Down, and states the end state for demo and real data. Status: fixed in this version.
+- **MINOR: pgx v5 cannot write an array of a custom enum without registering it first.** Fix: `urgent_reasons` is `text[]` with `chk_review_tags_urgent_reasons_allowed`, like `themes`, and section 4 says why. Status: fixed in this version.
+- **MINOR: the distinct CHECK names the three values, so a fourth reason would slip past it.** Fix: section 6 says a new reason rewrites both value CHECKs. Status: fixed in this version.
+- **MINOR: no acceptance criterion fails if the reasons are wrong or never shown** (AC-US-01-003-5 tests the flag; AC-US-01-009-4 lists urgent reviews with outlet, date and text only). Fix: tracked in section 11 for a backlog revision. Status: fixed in this version (tracked).
+- **NIT: the OpenAPI gap had no owner.** Fix: tracked in section 11. Status: fixed in this version (tracked).
+
 ## 11. Open concerns
 
 Each concern: the tag, the table, the consequence, an owner and date, and whether it blocks development.
@@ -482,12 +521,19 @@ Each concern: the tag, the table, the consequence, an owner and date, and whethe
 - **[gap]** No path deletes an outlet, an import or a wrong review (HLD section 17); the RESTRICT and CASCADE rules here are ready for one. (`outlets`, `imports`, `reviews`) Owner: product owner, through `prd` if wanted, after the MVP. Blocks development: no.
 - **[ambiguity]** The PostgreSQL major version is not pinned in the PRD or the HLD. This model is proven on PostgreSQL 16 and needs nothing newer. Owner: developer, when `new-repo` writes the Docker setup, build phase 0. Blocks development: no.
 
+- **[scope]** Storing urgent reasons (v2) needs matching changes outside this document, none made here: OpenAPI `Tags` gains `urgent_reasons` so screens S-02, S-04 and S-08 can show the reason; the backlog adds the reason to AC-US-01-003-5 (tagging) and AC-US-01-009-4 (digest); the HLD section 4 review tag result row names it. (`review_tags`) Owner: product owner, through `openapi-spec`, `backlog` and `high-level-design` revisions, before build phase 3. Blocks development: no.
+
 ## 12. Applying this
 
 `schema.sql` runs top to bottom in one transaction against an empty database: the `budget` schema and enum types first, then tables in foreign-key order. It is the reference for the whole model; the goose migrations in section 8 split it by build phase. Every change after the first release is its own migration, never an edit to this file.
 
 Tests: every test that touches the database runs on a database created for that run (CI's fresh service container; locally, a database the test harness creates and drops), never on the demo database. A test helper refuses to run when `current_database()` is the demo database's name, because the USD 8 tests insert cost rows into `budget.model_calls`, which nothing may delete (REQ-031).
 
-- Gate: `data-model: 9 tables, 70 columns, 10 indexes, 25 checks, 6 enums, 8 personal-data columns, 0 problems`
+- Gate: `data-model: 9 tables, 71 columns, 10 indexes, 28 checks, 6 enums, 8 personal-data columns, 0 problems` (v2)
 - Applied to an empty Postgres: yes, `schema-apply: docs/design/schema.sql applied to postgres:16, 8 tables` (the count is the `public` schema; `budget.model_calls` is the ninth)
 - Probed on postgres:16 with good and bad rows, 2026-10-06: 15 bad rows refused, each by the named index or constraint meant to refuse it; a second draft claim on the same review inserted nothing; a manager who approved a reply could not be deleted; the budget rows survived the seed's truncate of the domain tables.
+- Probed again for v2 on postgres:16, 2026-10-06: 4 valid tag rows accepted (no reason, one, two, all three); 7 refused, each by the rule meant to refuse it (urgent with no reason, a reason without urgent, a repeated reason, a null reason, an unknown reason, a null list, clearing the reasons of an urgent row).
+
+## Revision history
+
+- v1 (2026-10-06, commit 88dec6b): first version.

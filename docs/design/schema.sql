@@ -158,17 +158,27 @@ CREATE TABLE review_tags (
     themes text[] NOT NULL,
     sentiment sentiment NOT NULL,
     is_urgent boolean NOT NULL,
+    urgent_reasons text[] NOT NULL DEFAULT '{}',
     prompt_version integer NOT NULL,
     created_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT review_tags_pkey PRIMARY KEY (review_id),
     CONSTRAINT chk_review_tags_themes_no_nulls CHECK (array_position(themes, NULL) IS NULL),
-    CONSTRAINT chk_review_tags_prompt_version_positive CHECK (prompt_version >= 1)
+    CONSTRAINT chk_review_tags_prompt_version_positive CHECK (prompt_version >= 1),
+    CONSTRAINT chk_review_tags_urgent_matches_reasons CHECK (is_urgent = (cardinality(urgent_reasons) > 0)),
+    CONSTRAINT chk_review_tags_urgent_reasons_allowed CHECK (urgent_reasons <@ ARRAY['food_safety', 'harassment', 'legal_threat']::text[]),
+    CONSTRAINT chk_review_tags_urgent_reasons_distinct CHECK (
+        array_position(urgent_reasons, NULL) IS NULL
+        AND cardinality(array_remove(urgent_reasons, 'food_safety')) >= cardinality(urgent_reasons) - 1
+        AND cardinality(array_remove(urgent_reasons, 'harassment')) >= cardinality(urgent_reasons) - 1
+        AND cardinality(array_remove(urgent_reasons, 'legal_threat')) >= cardinality(urgent_reasons) - 1
+    )
 );
 COMMENT ON TABLE review_tags IS 'The stored tag result of a review; written once, never re-tagged. Serves US-01-003 to US-01-009, US-02-002.';
 COMMENT ON COLUMN review_tags.review_id IS 'The review the result line named; one result per review.';
 COMMENT ON COLUMN review_tags.themes IS 'Theme codes from the configured list; zero, one or several.';
 COMMENT ON COLUMN review_tags.sentiment IS 'One label: positive, neutral or negative.';
-COMMENT ON COLUMN review_tags.is_urgent IS 'True when the review concerns food safety, harassment or a legal threat.';
+COMMENT ON COLUMN review_tags.is_urgent IS 'True when the review concerns food safety, harassment or a legal threat; true exactly when urgent_reasons is not empty.';
+COMMENT ON COLUMN review_tags.urgent_reasons IS 'Why the review is urgent: food_safety, harassment, legal_threat; several allowed, none repeated, empty when not urgent.';
 COMMENT ON COLUMN review_tags.prompt_version IS 'Number of the tagging prompt version that produced this result.';
 COMMENT ON COLUMN review_tags.created_at IS 'When the result was stored.';
 

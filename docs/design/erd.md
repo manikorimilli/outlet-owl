@@ -59,7 +59,8 @@ erDiagram
         bigint review_id PK, FK "no row means untagged"
         text_array themes "configured theme codes"
         sentiment sentiment "positive, neutral, negative"
-        boolean is_urgent
+        boolean is_urgent "true exactly when urgent_reasons is not empty"
+        text_array urgent_reasons "food_safety, harassment, legal_threat"
         integer prompt_version
         timestamptz created_at
     }
@@ -103,7 +104,7 @@ erDiagram
     }
 ```
 
-`themes` is `text[]` in the schema; mermaid cannot print brackets in a type, so the diagram writes `text_array`.
+`themes` and `urgent_reasons` are `text[]` in the schema; mermaid cannot print brackets in a type, so the diagram writes `text_array`.
 
 ## Relationships
 
