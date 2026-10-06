@@ -7,7 +7,7 @@
     "must_feel": "Premium and polished, like one product from a funded startup: deep navy navigation, a light blue-white canvas, white cards with soft shadows, electric blue pill buttons with a soft glow; still a clear information hierarchy with readable charts and tables (PRD L141 to L156).",
     "avoid": "Clutter, decoration over review data, colour-only meaning, another product's logo, text or images.",
     "references": "webinar.gg, chosen by the product owner in round 2: its navy hero with light streaks, Plus Jakarta Sans headings with gradient words, pill buttons with a blue glow and white cards on soft-blue sections, adapted to an app. No logo, text or image copied.",
-    "notes": "Round 2 (2026-10-06): full visual redesign requested by the product owner; content, data, states and flows unchanged. Light only (dark dropped). Status keeps red, amber and green with words. Gradient words on light pages use the darker #0B5CFF to #3B82F6 gradient for contrast. Tenant colours (US-01-010) are a stretch and not designed."
+    "notes": "Round 2 (2026-10-06): full visual redesign requested by the product owner; content, data, states and flows unchanged. Light only (dark dropped). Status keeps red, amber and green with words. Motion (load fade-in, hover lift) kept by the product owner on 2026-10-06; the PRD constraint was reworded to match. Gradient words on light pages use the darker #0B5CFF to #3B82F6 gradient for contrast. Tenant colours (US-01-010) are a stretch and not designed."
   },
   "directions": [
     {
@@ -317,10 +317,6 @@
     {
       "kind": "risk",
       "detail": "Fonts load from Google Fonts in these mockups only; the app must bundle Plus Jakarta Sans and Noto Sans Devanagari files, because the runtime allows nothing else (HLD section 3). Plus Jakarta Sans has no Devanagari, so Hindi always renders in Noto Sans Devanagari."
-    },
-    {
-      "kind": "ambiguity",
-      "detail": "Round 2 adds a fade-and-rise on load for every screen and a hover lift on cards and buttons, at the product owner's request; the PRD (L149 to L150) asks to avoid unnecessary animation. Motion is short (420 ms, 200 ms transitions) and off under reduced motion. The PRD line may need rewording to match."
     },
     {
       "kind": "ambiguity",

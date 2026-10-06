@@ -250,7 +250,7 @@ Receives the digest over SMTP, locally and as a CI service container (conflict 2
 | Digest builder and mailer | Crash after the email is sent and before the row is marked sent | A digest row left in "sending" | A repeat of the same request returns the "sending" row and sends nothing; a new request sends a new digest | Accepted: at most one extra email in a local catcher, only if the admin starts a new request |
 | PostgreSQL | Container stopped | Connection errors in the log; health endpoint | Every screen errors | Start the container; no data loss for committed rows |
 | Seed command | Replay with recordings that do not match (prompt version changed) | Replay error naming the key | Seed fails before tagging finishes | Run once in record mode, deliberately (about USD 0.57) |
-| Eval command | Missing pass mark | Report shows "gate not set" | No pass or fail verdict | You set the pass mark (Q-017) |
+| Eval command | Urgent recall below 90% | Report shows the urgent gate failed and lists missed urgent reviews | Run exits with failure; theme accuracy (Q-018) and tone (Q-019) are report only and never fail it | Fix the tagging prompt, re-run, record a new replay |
 | CI | A test tries to reach OpenRouter | No key, openrouter.ai mapped to 0.0.0.0; replay error | Red build | Add the recording |
 
 ## 8. Scaling and limits
@@ -584,6 +584,6 @@ Addressed from "Not said" in v1: demo shelf life (Flow D step 3, re-seed in repl
 | The users file format (fields, file name, where it lives) | developer, in `low-level-design` | phase 1 |
 | Who labels the 100 evaluation reviews, and from which source; labels made from the seed generator would measure the generator | product owner | phase 7 |
 | No path deletes an outlet, an import or a wrong review; the PRD has none | product owner, through `prd` if wanted | after the MVP |
-| Urgent recall pass mark (Q-017) and optional pass marks (Q-018, Q-019) | product owner | before the gate is enforced; not needed to build |
+| Evaluation pass marks: settled 2026-10-06 (urgent recall 90%, Q-017; theme accuracy and tone report only, Q-018 and Q-019) | product owner | closed |
 | The tagging prompt's exact line format and theme codes | developer, in `low-level-design` and `prompt-registry` | phase 3 |
 | Backlog wording to amend after this HLD: AC-US-01-002-1 ("each valid row becomes one stored review") gains "rows already imported are counted, not stored" | product owner, through `backlog` | phase 3 |

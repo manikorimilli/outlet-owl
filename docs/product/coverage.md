@@ -45,7 +45,7 @@ No application code exists yet, so no statement was checked against code; the re
 | REQ-035 | The CI pipeline makes no live model calls | criterion-of US-02-003 | No live calls in CI is the condition replay must meet. | US-02-003 | AC-US-02-003-3 |
 | REQ-036 | The project includes an evaluation that measures theme accuracy on... | story | The classification evaluation is its own deliverable. | US-02-004 | AC-US-02-004-1, AC-US-02-004-5 |
 | REQ-037 | The evaluation measures urgent-flag accuracy on the same 100... | story | Measured in the same evaluation run as REQ-036. | US-02-004 | AC-US-02-004-2, AC-US-02-004-5 |
-| REQ-038 | The classification evaluation passes or fails on urgent recall | criterion-of US-02-004 | The gate is a rule on the evaluation result; its pass mark is open (Q-017). | US-02-004 | AC-US-02-004-3, AC-US-02-004-4 |
+| REQ-038 | The classification evaluation passes or fails on urgent recall | criterion-of US-02-004 | The gate is a rule on the evaluation result; its pass mark is 90% urgent recall (Q-017, given 2026-10-06). | US-02-004 | AC-US-02-004-3, AC-US-02-004-4 |
 | REQ-039 | The project includes a tone check of 30 reply drafts | story | The tone check is its own deliverable. | US-02-005 | AC-US-02-005-1, AC-US-02-005-2, AC-US-02-005-3 |
 | REQ-040 | The repository includes a seed script that creates the demo data | story | The seed script is what the developer runs. | US-02-006 | AC-US-02-006-1, AC-US-02-006-5 |
 | REQ-041 | The seed script creates 5 outlets | criterion-of US-02-006 | A count the seed must produce. | US-02-006 | AC-US-02-006-2 |

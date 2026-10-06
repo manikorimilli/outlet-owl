@@ -113,8 +113,8 @@ One testable statement per id. Ids are never reused or renumbered.
 | --- | --- | --- | --- | --- |
 | REQ-036 | The project includes an evaluation that measures theme accuracy on 100 labelled reviews. | | L99 | Q-018 confirmed 2026-10-06: precision and recall per theme; no pass mark |
 | REQ-037 | The evaluation measures urgent-flag accuracy on the same 100 labelled reviews. | | L99 | Q-017 confirmed 2026-10-06: reports urgent recall and precision and lists missed urgent reviews |
-| REQ-038 | The classification evaluation passes or fails on urgent recall. | | L100, L103 to L104 | Q-017 confirmed 2026-10-06: no pass mark invented; the gate reports "gate not set" until you give the recall pass mark |
-| REQ-039 | The project includes a tone check of 30 reply drafts. | | L101, L103 to L104 | Q-019 confirmed 2026-10-06: a person scores each draft against a written rubric; no pass mark |
+| REQ-038 | The classification evaluation passes or fails on urgent recall. | | L100, L103 to L104 | Q-017 confirmed 2026-10-06: pass mark given by the user: urgent recall 90% or more passes, below 90% fails |
+| REQ-039 | The project includes a tone check of 30 reply drafts. | | L101, L103 to L104 | Q-019 confirmed 2026-10-06: a person scores each draft against a written rubric; report only, no pass mark (decided by the user) |
 
 ### Seed data
 
@@ -165,7 +165,7 @@ Seed data
 - The seed is created by a script (L111).
 
 Design stage (process constraints from the brief)
-- Avoid clutter, unnecessary animation and decorative elements that distract from the review data (L149 to L150).
+- Avoid clutter and decorative elements that distract from the review data (L149 to L150). Motion is limited to a short fade-in on load and a hover lift on cards and buttons (200 to 420 ms), switched off when the person's system asks for reduced motion; charts and data are never animated (decided by the product owner on 2026-10-06, screen-design round 2).
 - The proposed design is shown to the requester before it is implemented (L152).
 - A reference website may be suggested at the design stage with the relevant design qualities explained; another product's branding is not copied (L153 to L154).
 - Visual polish is kept separate from adding new product features (L155).
@@ -174,7 +174,7 @@ Design stage (process constraints from the brief)
 
 ## 7. Open questions
 
-23 entries in docs/product/questions.md: 0 open, 0 need your confirmation; 23 confirmed by you on 2026-10-06. Q-022 and Q-023 were added by backlog. Still yours to give, and not needed to build: the urgent recall pass mark (Q-017), and any optional pass marks for theme accuracy (Q-018) and tone (Q-019).
+23 entries in docs/product/questions.md: 0 open, 0 need your confirmation; 23 confirmed by you on 2026-10-06. Q-022 and Q-023 were added by backlog. Urgent recall pass mark given 2026-10-06: 90% (Q-017). Theme accuracy (Q-018) and the tone check (Q-019) are report only, with no pass mark (decided 2026-10-06). No values are left to give.
 
 ## 8. Could not extract
 

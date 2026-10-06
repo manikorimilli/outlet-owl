@@ -261,7 +261,7 @@ Covers: REQ-015, REQ-016, REQ-044, REQ-045   Judgement: merged from REQ-015, REQ
   Covers: REQ-016
 - AC-US-01-005-3. Given the brand admin on any screen, when they look for the outlet comparison, then it is reachable in one step from the main navigation (exact acceptance set in design).
   Covers: REQ-045
-- AC-US-01-005-4. Given the trend charts, when they are reviewed against the design system, then they follow its hierarchy, type scale, spacing and colour tokens with no decorative animation (acceptance set in design).
+- AC-US-01-005-4. Given the trend charts, when they are reviewed against the design system, then they follow its hierarchy, type scale, spacing and colour tokens with no animation of the charts themselves; only the shared load fade-in and hover lift apply, and both are off under reduced motion (acceptance set in design; motion decided by the product owner on 2026-10-06).
   Covers: REQ-044
 
 **Not in this story.**
@@ -759,15 +759,15 @@ Covers: REQ-036, REQ-037, REQ-038   Judgement: merged from REQ-036, REQ-037 (sto
   Covers: REQ-036
 - AC-US-02-004-2. Given the same 100 reviews, when the evaluation runs, then it reports urgent recall and urgent precision, and lists each urgent review the model missed.
   Covers: REQ-037
-- AC-US-02-004-3. Given no urgent recall pass mark has been set, when the evaluation runs, then it reports "gate not set" and does not report a pass (Q-017, confirmed 2026-10-06: no threshold is invented; you give it later).
+- AC-US-02-004-3. Given urgent recall on the 100 reviews is 90% or more, when the evaluation runs, then it reports the urgent gate as passed (Q-017, pass mark 90% given by you on 2026-10-06).
   Covers: REQ-038
-- AC-US-02-004-4. Given you have set a recall pass mark, when urgent recall on a manual live run or on the recorded results replayed in CI is below it, then the evaluation exits with failure (Q-017, confirmed 2026-10-06).
+- AC-US-02-004-4. Given urgent recall below 90% on a manual live run or on the recorded results replayed in CI, when the evaluation runs, then it reports the urgent gate as failed, lists the missed urgent reviews and exits with failure (Q-017, pass mark 90% given by you on 2026-10-06).
   Covers: REQ-038
 - AC-US-02-004-5. Given a live evaluation run, when it ends, then its report names the tagging prompt version and the model, and its cost is in the gateway's running total.
   Covers: REQ-036, REQ-037
 
 **Not in this story.**
-- Any pass mark for theme accuracy or urgent recall (Q-017, Q-018, confirmed 2026-10-06: none invented; you set them later).
+- Any pass mark for theme accuracy (Q-018, decided by you on 2026-10-06: report only, no pass mark).
 - Reply tone checks (US-02-005).
 
 **Depends on.**
@@ -776,11 +776,11 @@ Covers: REQ-036, REQ-037, REQ-038   Judgement: merged from REQ-036, REQ-037 (sto
 
 **Assumptions.**
 - Themes are scored by precision and recall per theme, with no pass mark (Q-018, confirmed 2026-10-06).
-- The evaluation runs by hand with live calls and CI replays the recorded results; the recall pass mark is unset until you give it (Q-017, confirmed 2026-10-06).
+- The evaluation runs by hand with live calls and CI replays the recorded results; the urgent recall pass mark is 90% (Q-017, given by you on 2026-10-06).
 - The report names the tagging prompt version, which each stored tag records (Q-011, confirmed 2026-10-06).
 - Several themes per review (Q-021, confirmed 2026-10-06).
 
-**Resolve before build.** none (Q-017, Q-018, Q-021 confirmed 2026-10-06); the recall pass mark from Q-017 is not needed to build, only to enforce the gate
+**Resolve before build.** none (Q-017, Q-018, Q-021 confirmed 2026-10-06; Q-017 pass mark 90% given)
 
 ### US-02-005 Check the tone of 30 reply drafts
 
@@ -804,7 +804,7 @@ Covers: REQ-039   Judgement: story
   Covers: REQ-039
 - AC-US-02-005-2. Given the 30 drafts and a written tone rubric, when a person scores them, then each draft has a score per rubric item and the totals are reported (Q-019, confirmed 2026-10-06).
   Covers: REQ-039
-- AC-US-02-005-3. Given no tone pass mark has been set, when the check is reported, then it shows the scores and "pass mark not set" (Q-019, confirmed 2026-10-06: no threshold is invented).
+- AC-US-02-005-3. Given the 30 drafts are scored, when the check is reported, then it shows the scores per draft and per rubric item with no pass or fail verdict (Q-019, decided by you on 2026-10-06: report only).
   Covers: REQ-039
 
 **Not in this story.**
@@ -814,7 +814,7 @@ Covers: REQ-039   Judgement: story
 - US-00-002: produces the drafts.
 
 **Assumptions.**
-- A person scores the drafts against a written rubric, with no pass mark (Q-019, confirmed 2026-10-06).
+- A person scores the drafts against a written rubric; report only, no pass mark (Q-019, decided by you on 2026-10-06).
 - Drafts record the prompt version (Q-011, confirmed 2026-10-06).
 
 **Resolve before build.** none (Q-011, Q-019 confirmed 2026-10-06)
