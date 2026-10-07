@@ -46,8 +46,10 @@ dev: ## Run the Go server locally (reads .env if present; needs make db)
 web-dev: ## Run the Vite dev server on :5173 (forwards /api to :8080)
 	cd $(WEB) && $(PNPM) run dev
 
+# One read serves a terminal and a pipe: IFS= keeps leading and trailing
+# spaces, and bash applies -s and -p only when stdin is a terminal.
 hash-password: ## Print a bcrypt hash (cost 12) for the users file; the password is read without echo
-	@if [ -t 0 ]; then read -rsp "Password: " pw; echo >&2; else IFS= read -r pw; fi; \
+	@IFS= read -rsp "Password: " pw; if [ -t 0 ]; then echo >&2; fi; \
 	printf '%s' "$$pw" | go run ./cmd/hashpw
 
 build: web-build ## Build the Go binary into bin/ and the web app into web/dist/

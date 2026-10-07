@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"errors"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -22,6 +24,27 @@ func TestHashpw_PrintsHashThatChecksAgainstInput(t *testing.T) {
 	}
 	if strings.Contains(out.String(), "correct horse battery") {
 		t.Fatal("the password appears in the output")
+	}
+}
+
+// The make target is how people run hashpw; its read once trimmed the spaces
+// a password starts or ends with, so the hash matched a different password.
+func TestMakeHashPassword_KeepsLeadingAndTrailingSpaces(t *testing.T) {
+	const password = "  correct horse \t"
+	cmd := exec.Command("make", "--no-print-directory", "-s", "-C", filepath.Join("..", ".."), "hash-password")
+	cmd.Stdin = strings.NewReader(password + "\n")
+
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("make hash-password: %v", err)
+	}
+
+	hash := strings.TrimSuffix(string(out), "\n")
+	if !auth.CheckPassword(hash, password) {
+		t.Fatalf("printed hash %q does not check against the password with its spaces", hash)
+	}
+	if auth.CheckPassword(hash, strings.TrimSpace(password)) {
+		t.Fatal("the hash checks against the trimmed password")
 	}
 }
 
