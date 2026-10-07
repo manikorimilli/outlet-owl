@@ -114,11 +114,16 @@ func TestCrossSiteWriteGets403Envelope(t *testing.T) {
 }
 
 // TestSameOriginWriteReachesTheRoutes: the same request from the UI's own
-// origin passes the check and gets the router's answer (no route yet: 404).
+// origin passes the check and gets the route's own answer: 401, because it
+// carries no session cookie.
 func TestSameOriginWriteReachesTheRoutes(t *testing.T) {
 	rec := post(t, handler(fakeDB{}), "/api/v1/outlets", "same-origin", "http://localhost:8080")
 
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("status: got %d want 404 from the router", rec.Code)
+	var body envelope
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if rec.Code != http.StatusUnauthorized || body.Error.Code != "unauthorized" {
+		t.Fatalf("got %d %q, want 401 unauthorized from the route", rec.Code, body.Error.Code)
 	}
 }

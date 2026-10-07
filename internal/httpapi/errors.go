@@ -7,6 +7,7 @@ import (
 
 	"github.com/manikorimilli/outlet-owl/internal/auth"
 	"github.com/manikorimilli/outlet-owl/internal/middleware"
+	"github.com/manikorimilli/outlet-owl/internal/outlets"
 )
 
 // Detail is one entry of the error envelope's details: the field and the
@@ -45,6 +46,8 @@ func WriteErrorDetails(w http.ResponseWriter, r *http.Request, status int, code,
 func writeDomainError(w http.ResponseWriter, r *http.Request, logger *slog.Logger, err error) {
 	var malformed *malformedError
 	var invalid *validationError
+	var badName *outlets.ValidationError
+	var taken *outlets.NameTakenError
 	switch {
 	case errors.Is(err, errUnsupportedMediaType):
 		WriteError(w, r, http.StatusUnsupportedMediaType, "unsupported_media_type", "Send application/json.")
@@ -56,10 +59,27 @@ func writeDomainError(w http.ResponseWriter, r *http.Request, logger *slog.Logge
 		WriteError(w, r, http.StatusUnauthorized, "invalid_credentials", "That email and password do not match an account. Check both and try again.")
 	case errors.Is(err, auth.ErrUnauthenticated):
 		WriteError(w, r, http.StatusUnauthorized, "unauthorized", "Sign in again.")
+	case errors.Is(err, outlets.ErrRoleNotAllowed):
+		WriteError(w, r, http.StatusForbidden, "role_not_allowed", "Only the brand admin can add outlets.")
+	case errors.As(err, &badName):
+		WriteErrorDetails(w, r, http.StatusUnprocessableEntity, "validation_failed", outletNameMessage(badName.Reason),
+			[]Detail{{Field: badName.Field, Reason: badName.Reason}})
+	case errors.As(err, &taken):
+		// details[0].reason carries the stored name (api/openapi.yaml 1.1.1).
+		WriteErrorDetails(w, r, http.StatusConflict, "outlet_name_taken",
+			"An outlet named "+taken.Existing+" already exists. Names are matched without regard to capitals, so use a different name.",
+			[]Detail{{Field: "name", Reason: taken.Existing}})
 	default:
 		logger.ErrorContext(r.Context(), "request failed", "err", err,
 			"method", r.Method, "path", r.URL.Path,
 			"request_id", middleware.RequestIDFrom(r.Context()))
 		WriteError(w, r, http.StatusInternalServerError, "internal", internalMessage)
 	}
+}
+
+func outletNameMessage(reason string) string {
+	if reason == "too_long" {
+		return "Use at most 200 characters for the outlet name."
+	}
+	return "Enter the outlet name."
 }

@@ -19,10 +19,11 @@ type Pinger interface {
 
 // Deps is what the routes need. main builds it; tests fill it with fakes.
 type Deps struct {
-	Logger *slog.Logger
-	DB     Pinger
-	Auth   Authenticator
-	Brand  Brand
+	Logger  *slog.Logger
+	DB      Pinger
+	Auth    Authenticator
+	Outlets OutletService
+	Brand   Brand
 }
 
 // New builds the HTTP handler. The chain, outermost first: request id, panic
@@ -35,6 +36,8 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("POST /api/v1/auth/login", login(d))
 	mux.HandleFunc("POST /api/v1/auth/logout", logout())
 	mux.HandleFunc("GET /api/v1/me", me(d))
+	mux.HandleFunc("GET /api/v1/outlets", listOutlets(d))
+	mux.HandleFunc("POST /api/v1/outlets", createOutlet(d))
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, r, http.StatusNotFound, "not_found", "No such route.")
 	})

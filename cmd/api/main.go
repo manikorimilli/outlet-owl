@@ -21,6 +21,7 @@ import (
 	"github.com/manikorimilli/outlet-owl/internal/auth"
 	"github.com/manikorimilli/outlet-owl/internal/config"
 	"github.com/manikorimilli/outlet-owl/internal/httpapi"
+	"github.com/manikorimilli/outlet-owl/internal/outlets"
 	"github.com/manikorimilli/outlet-owl/internal/store"
 )
 
@@ -63,10 +64,11 @@ func run() error {
 	}
 
 	handler := httpapi.New(httpapi.Deps{
-		Logger: logger,
-		DB:     st,
-		Auth:   auth.NewService(st, tokens),
-		Brand:  httpapi.Brand{Name: cfg.BrandName, Timezone: cfg.BrandTimezone.String()},
+		Logger:  logger,
+		DB:      st,
+		Auth:    auth.NewService(st, tokens),
+		Outlets: outlets.NewService(st),
+		Brand:   httpapi.Brand{Name: cfg.BrandName, Timezone: cfg.BrandTimezone.String()},
 	})
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
