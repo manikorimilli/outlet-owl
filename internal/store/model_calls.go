@@ -10,6 +10,9 @@ import (
 	"github.com/manikorimilli/outlet-owl/internal/gateway"
 )
 
+// The gateway keeps its budget log in the store.
+var _ gateway.Store = (*Store)(nil)
+
 // ReserveModelCall reserves a call's worst-case price, as a decimal string in
 // USD, while the running total is at most limitUSD. It returns
 // gateway.ErrBudgetExhausted when the total is already above the limit.
