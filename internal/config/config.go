@@ -8,6 +8,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/manikorimilli/outlet-owl/internal/gateway"
 )
 
 // minJWTSecretBytes is the shortest signing secret accepted: 32 bytes is the
@@ -28,6 +30,13 @@ type Config struct {
 	// (Q-001); GET /me returns both, and the timezone bounds the weeks.
 	BrandName     string
 	BrandTimezone *time.Location
+	// GatewayMode is live, record or replay; unset means replay, so nothing
+	// spends money unless the operator chooses it (phase 2 LLD section 7).
+	GatewayMode gateway.Mode
+	// OpenRouterKey is required in live and record mode. Never log it.
+	OpenRouterKey string
+	// RecordingsDir is where record writes and replay reads.
+	RecordingsDir string
 }
 
 // Load reads and validates the environment.
@@ -73,6 +82,16 @@ func Load() (Config, error) {
 	} else {
 		c.BrandTimezone = loc
 	}
+	if mode, err := gateway.ParseMode(os.Getenv("MODEL_GATEWAY_MODE")); err != nil {
+		problems = append(problems, "MODEL_GATEWAY_MODE "+err.Error())
+	} else {
+		c.GatewayMode = mode
+	}
+	c.OpenRouterKey = os.Getenv("OPENROUTER_API_KEY")
+	if (c.GatewayMode == gateway.Live || c.GatewayMode == gateway.Record) && c.OpenRouterKey == "" {
+		problems = append(problems, "OPENROUTER_API_KEY is required when MODEL_GATEWAY_MODE is live or record")
+	}
+	c.RecordingsDir = envOr("MODEL_RECORDINGS_DIR", "testdata/recordings")
 	if len(problems) > 0 {
 		return Config{}, fmt.Errorf("config: %s", strings.Join(problems, "; "))
 	}

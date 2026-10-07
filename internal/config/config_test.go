@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"strings"
 	"testing"
+
+	"github.com/manikorimilli/outlet-owl/internal/gateway"
 )
 
 const validSecret = "0123456789abcdef0123456789abcdef" // 32 bytes, test only
@@ -18,6 +20,9 @@ func setValidEnv(t *testing.T) {
 	t.Setenv("USERS_FILE", "")
 	t.Setenv("BRAND_NAME", "Neem Tree Kitchens")
 	t.Setenv("BRAND_TIMEZONE", "")
+	t.Setenv("MODEL_GATEWAY_MODE", "")
+	t.Setenv("OPENROUTER_API_KEY", "")
+	t.Setenv("MODEL_RECORDINGS_DIR", "")
 }
 
 func TestLoad(t *testing.T) {
@@ -172,5 +177,42 @@ func TestLoad_ReportsEveryProblemAtOnce(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), name) {
 			t.Fatalf("want an error naming %s, got %v", name, err)
 		}
+	}
+}
+
+func TestLoad_GatewayModeDefaultsToReplay(t *testing.T) {
+	setValidEnv(t)
+
+	c, err := Load()
+
+	if err != nil || c.GatewayMode != gateway.Replay || c.RecordingsDir != "testdata/recordings" {
+		t.Fatalf("Load = %+v, %v; want replay and the default recordings directory", c.GatewayMode, err)
+	}
+}
+
+func TestLoad_LiveAndRecordNeedTheKey(t *testing.T) {
+	for _, mode := range []string{"live", "record"} {
+		t.Run(mode, func(t *testing.T) {
+			setValidEnv(t)
+			t.Setenv("MODEL_GATEWAY_MODE", mode)
+
+			_, err := Load()
+			if err == nil || !strings.Contains(err.Error(), "OPENROUTER_API_KEY is required") {
+				t.Fatalf("err = %v, want the key required", err)
+			}
+			t.Setenv("OPENROUTER_API_KEY", "sk-or-test")
+			if c, err := Load(); err != nil || c.GatewayMode != gateway.Mode(mode) {
+				t.Fatalf("with a key: %v, %v", c.GatewayMode, err)
+			}
+		})
+	}
+}
+
+func TestLoad_RejectsAnUnknownMode(t *testing.T) {
+	setValidEnv(t)
+	t.Setenv("MODEL_GATEWAY_MODE", "dry-run")
+
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "MODEL_GATEWAY_MODE must be live, record or replay") {
+		t.Fatalf("err = %v, want the mode refused", err)
 	}
 }

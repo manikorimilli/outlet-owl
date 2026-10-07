@@ -20,6 +20,7 @@ import (
 
 	"github.com/manikorimilli/outlet-owl/internal/auth"
 	"github.com/manikorimilli/outlet-owl/internal/config"
+	"github.com/manikorimilli/outlet-owl/internal/gateway"
 	"github.com/manikorimilli/outlet-owl/internal/httpapi"
 	"github.com/manikorimilli/outlet-owl/internal/outlets"
 	"github.com/manikorimilli/outlet-owl/internal/store"
@@ -56,6 +57,11 @@ func run() error {
 	defer st.Close()
 
 	if err := loadUsers(ctx, logger, st, cfg.UsersFile); err != nil {
+		return err
+	}
+	// The gateway has no caller until build phase 3; starting it here checks
+	// the budget table and reconciles the total once (phase 2 LLD 4.4).
+	if _, err := startGateway(ctx, logger, st, cfg); err != nil {
 		return err
 	}
 	tokens, err := auth.NewTokens(cfg.JWTSecret, nil)
@@ -129,4 +135,38 @@ func loadUsers(ctx context.Context, logger *slog.Logger, st *store.Store, path s
 	logger.Info("users synced", "file", path, "entries", len(file.Entries)-len(res.Skipped),
 		"changed", res.Changed, "removed", res.Removed, "skipped", len(file.Skipped)+len(res.Skipped))
 	return nil
+}
+
+// startGateway builds the model gateway, refuses to start without the budget
+// table, reconciles the running total with OpenRouter's key usage in live and
+// record mode, and logs one budget line (HLD section 10).
+func startGateway(ctx context.Context, logger *slog.Logger, st *store.Store, cfg config.Config) (*gateway.Gateway, error) {
+	gw, err := gateway.New(gateway.Config{
+		Mode:          cfg.GatewayMode,
+		APIKey:        cfg.OpenRouterKey,
+		RecordingsDir: cfg.RecordingsDir,
+		Store:         st,
+		Logger:        logger,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if _, err := st.RunningTotalUSD(ctx); err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == sqlstateUndefinedTable {
+			return nil, fmt.Errorf("budget: the budget table does not exist; run make migrate: %w", err)
+		}
+		return nil, fmt.Errorf("budget: %w", err)
+	}
+	rec := gw.Reconcile(ctx)
+	if rec.Err != nil {
+		logger.Warn("budget unreconciled; the local total stands", "err", rec.Err)
+	}
+	total, err := st.RunningTotalUSD(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("budget: %w", err)
+	}
+	logger.Info("budget", "mode", string(gw.Mode()), "total_usd", total, "limit_usd", gateway.LimitUSD,
+		"reconciliation", rec.State, "added_usd", rec.AddedUSD)
+	return gw, nil
 }

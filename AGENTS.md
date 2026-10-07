@@ -51,7 +51,11 @@ Breaking one gets the change rejected, whatever else it does.
   `.env.example`. `make dev` reads `.env` as shell, so quote a value with a
   space. When a port is taken, change `POSTGRES_PORT` and the port in
   `DATABASE_URL` together; `make migrate` and `make test-integration` use
-  that `DATABASE_URL` unless one is given on the command line.
+  that `DATABASE_URL` unless one is given on the command line. `make migrate`
+  also applies the budget set (`db/migrations/budget`), which has no Down and
+  is never rolled back. `MODEL_GATEWAY_MODE` defaults to `replay`, which
+  answers only from `testdata/recordings` and spends nothing; `live` and
+  `record` need `OPENROUTER_API_KEY` and spend real budget.
 - Accounts: `cp users.example.json users.json` (ignored by git), then replace
   each `password_hash` with the output of `make hash-password`. Start with the
   admin entry only: a manager entry naming an outlet that does not exist yet
