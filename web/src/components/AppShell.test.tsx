@@ -50,7 +50,9 @@ describe("AppShell", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Sign out" }));
 
-    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Sign in to review intelligence" }),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("location").textContent).toBe("/sign-in");
     expect(fetchStub.mock.calls.map((c) => `${c[1]?.method ?? "GET"} ${String(c[0])}`)).toContain(
       "POST /api/v1/auth/logout",
@@ -66,7 +68,9 @@ describe("AppShell", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Sign out" }));
 
-    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Sign in to review intelligence" }),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("location").textContent).toBe("/sign-in");
   });
 });

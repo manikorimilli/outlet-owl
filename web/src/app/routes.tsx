@@ -1,14 +1,15 @@
 import { Navigate, Route, Routes } from "react-router";
 import { AppShell } from "../components/AppShell";
 import { OverviewPlaceholder } from "../components/OverviewPlaceholder";
+import { SignInPage } from "../features/auth/SignInPage";
 import { RequireRole, RequireSession } from "./session";
 
-// The route table (web LLD section 3). The sign-in and outlets screens arrive
-// in W4 and W5; until then their routes hold a heading.
+// The route table (web LLD section 3). The outlets screen arrives in W5; until
+// then its route holds a heading.
 export function AppRoutes() {
   return (
     <Routes>
-      <Route path="/sign-in" element={<h1>Sign in</h1>} />
+      <Route path="/sign-in" element={<SignInPage />} />
       <Route element={<RequireSession />}>
         <Route element={<AppShell />}>
           <Route index element={<OverviewPlaceholder />} />

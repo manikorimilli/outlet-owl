@@ -4,5 +4,5 @@ import { useLocation } from "react-router";
 // a redirect went.
 export function LocationProbe() {
   const location = useLocation();
-  return <output data-testid="location">{location.pathname + location.search}</output>;
+  return <div data-testid="location">{location.pathname + location.search}</div>;
 }

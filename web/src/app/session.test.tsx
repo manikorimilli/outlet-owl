@@ -10,7 +10,9 @@ describe("the session", () => {
 
     renderApp("/outlets");
 
-    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Sign in to review intelligence" }),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("location")).toHaveTextContent("/sign-in");
   });
 
@@ -19,8 +21,9 @@ describe("the session", () => {
 
     renderApp("/");
 
-    await screen.findByRole("heading", { name: "Sign in" });
+    await screen.findByRole("heading", { name: "Sign in to review intelligence" });
     expect(screen.getByTestId("location").textContent).toBe("/sign-in");
+    expect(screen.queryByText(/Your session ended/)).not.toBeInTheDocument();
   });
 
   it("RequireSession shows the reload error when /me fails with 500", async () => {
@@ -52,7 +55,10 @@ describe("the session", () => {
 
     await act(() => apiFetch("/outlets").catch(() => undefined));
 
-    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Sign in to review intelligence" }),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("location").textContent).toBe("/sign-in?expired=1");
+    expect(screen.getByRole("status")).toHaveTextContent("Your session ended after 8 hours.");
   });
 });

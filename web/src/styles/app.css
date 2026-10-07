@@ -409,3 +409,111 @@ input:focus-visible {
     animation: none;
   }
 }
+
+/* ---------------------------------------------------------------- notices (colour always with a word) */
+.notice {
+  padding: var(--space-half) var(--space-3);
+  border-radius: var(--radius-control);
+  border: 1px solid transparent;
+}
+.notice p {
+  margin: 0;
+}
+.notice.warn {
+  background: var(--color-warning-subtle);
+  color: var(--color-text);
+}
+.notice.warn strong {
+  color: var(--color-warning);
+}
+
+/* ---------------------------------------------------------------- sign-in (S-01): the navy hero */
+.signin-page {
+  position: relative;
+  display: block;
+  min-block-size: 100vh;
+  overflow: hidden;
+  background: var(--gradient-navy);
+  color: var(--color-on-navy);
+  isolation: isolate;
+}
+.signin-page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--glow-hero);
+}
+.signin-page h1 {
+  color: var(--color-on-navy);
+  font-size: var(--text-hero);
+  font-weight: var(--weight-stat);
+}
+.signin-page .hl {
+  background-image: var(--gradient-highlight-dark);
+}
+.signin-intro .muted {
+  color: var(--color-on-navy-muted);
+  font-size: var(--text-title);
+}
+.signin-page :focus-visible {
+  outline-color: var(--color-focus-on-navy);
+}
+.signin-page .signin :focus-visible {
+  outline-color: var(--color-focus);
+}
+.signin-wrap {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: var(--space-6);
+  padding: var(--space-6) var(--space-4);
+  align-items: center;
+  max-inline-size: 1440px;
+  margin-inline: auto;
+}
+@media (min-width: 900px) {
+  .signin-wrap {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 27rem);
+    padding: var(--space-7);
+    min-block-size: 100vh;
+  }
+}
+.signin {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid transparent;
+  border-radius: var(--radius-overlay);
+  box-shadow: var(--elevation-hero), var(--glow-primary);
+}
+.signin .muted {
+  color: var(--color-text-muted);
+}
+.signin .error p {
+  margin: 0;
+}
+.signin .btn-block {
+  margin-block-start: var(--space-1);
+}
+.brand.big {
+  font-size: var(--text-title);
+  margin: 0 0 var(--space-5);
+}
+.brand.big .logo {
+  inline-size: 36px;
+  block-size: 36px;
+}
+.signin-wrap > * {
+  animation: rise var(--duration-enter) var(--ease-enter) both;
+}
+.signin-wrap > :nth-child(2) {
+  animation-delay: 60ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .signin-wrap > * {
+    animation: none;
+  }
+}
