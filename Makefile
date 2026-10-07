@@ -25,7 +25,7 @@ define skip
 { mkdir -p $(STATE); echo "$(1): SKIPPED ($(2) not installed)"; echo "$(1) $(2)" >> $(SKIPPED); exit 0; }
 endef
 
-.PHONY: help setup hooks dev web-dev build check check-file fix vuln db db-down db-reset migrate migrate-down migrate-status sqlc doctor clean \
+.PHONY: help setup hooks dev web-dev hash-password build check check-file fix vuln db db-down db-reset migrate migrate-down migrate-status sqlc doctor clean \
 	go-fmt-check go-vet go-lint go-test test-integration web-format-check web-lint web-typecheck web-test web-build
 
 help: ## List targets
@@ -45,6 +45,10 @@ dev: ## Run the Go server locally (reads .env if present; needs make db)
 
 web-dev: ## Run the Vite dev server on :5173 (forwards /api to :8080)
 	cd $(WEB) && $(PNPM) run dev
+
+hash-password: ## Print a bcrypt hash (cost 12) for the users file; the password is read without echo
+	@if [ -t 0 ]; then read -rsp "Password: " pw; echo >&2; else IFS= read -r pw; fi; \
+	printf '%s' "$$pw" | go run ./cmd/hashpw
 
 build: web-build ## Build the Go binary into bin/ and the web app into web/dist/
 	CGO_ENABLED=0 go build -ldflags="-s -w -X main.version=$$(git describe --tags --always --dirty)" -o bin/api ./cmd/api
