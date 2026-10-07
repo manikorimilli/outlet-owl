@@ -48,7 +48,10 @@ Breaking one gets the change rejected, whatever else it does.
   the server refuses to start without it), and `make db` (PostgreSQL and
   MailHog in Docker). An `.env` copied before phase 1 lacks `JWT_SECRET`,
   `USERS_FILE`, `BRAND_NAME` and `BRAND_TIMEZONE`: copy them from
-  `.env.example`.
+  `.env.example`. `make dev` reads `.env` as shell, so quote a value with a
+  space. When a port is taken, change `POSTGRES_PORT` and the port in
+  `DATABASE_URL` together; `make migrate` and `make test-integration` use
+  that `DATABASE_URL` unless one is given on the command line.
 - Accounts: `cp users.example.json users.json` (ignored by git), then replace
   each `password_hash` with the output of `make hash-password`. Start with the
   admin entry only: a manager entry naming an outlet that does not exist yet

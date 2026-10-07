@@ -11,8 +11,13 @@ PNPM ?= pnpm
 WEB := web
 STATE := .bearing/state
 SKIPPED := $(STATE)/.skipped
+# The database the migrate and test-integration targets use is the server's:
+# DATABASE_URL from the command line or the environment, else from .env read
+# the way make dev reads it, else PostgreSQL on POSTGRES_PORT. Make does not
+# read .env by itself, so a port moved there used to send make migrate to 5432.
 POSTGRES_PORT ?= 5432
-DATABASE_URL ?= postgres://postgres:postgres@localhost:$(POSTGRES_PORT)/outlet_owl?sslmode=disable
+DOTENV_DATABASE_URL := $(shell [ -f .env ] && { set -a; . ./.env; set +a; printf '%s' "$$DATABASE_URL"; } 2>/dev/null)
+DATABASE_URL ?= $(or $(DOTENV_DATABASE_URL),postgres://postgres:postgres@localhost:$(POSTGRES_PORT)/outlet_owl?sslmode=disable)
 GO_FILES = $(shell find . -name '*.go' -not -path './web/*' -not -path './.git/*' -not -path './internal/store/*.sql.go')
 
 # The offline gates `make check` runs, in order. vuln needs the network and
