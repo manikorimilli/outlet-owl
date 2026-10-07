@@ -12,6 +12,9 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	// Embeds the IANA zone database so BRAND_TIMEZONE loads on machines and
+	// images without one (phase 1 server LLD, section 7).
+	_ "time/tzdata"
 
 	"github.com/manikorimilli/outlet-owl/internal/config"
 	"github.com/manikorimilli/outlet-owl/internal/httpapi"

@@ -44,14 +44,18 @@ Breaking one gets the change rejected, whatever else it does.
 ## Commands (every one is a Makefile target; `make help` lists them)
 
 - First time: `make setup` (Go modules, web packages, git hooks), then
-  `cp .env.example .env` and `make db` (PostgreSQL and MailHog in Docker).
+  `cp .env.example .env`, set `JWT_SECRET` in `.env` (`openssl rand -hex 32`;
+  the server refuses to start without it), and `make db` (PostgreSQL and
+  MailHog in Docker). An `.env` copied before phase 1 lacks `JWT_SECRET`,
+  `USERS_FILE`, `BRAND_NAME` and `BRAND_TIMEZONE`: copy them from
+  `.env.example`.
 - Run: `make dev` (server on :8080), `make web-dev` (Vite on :5173, forwards /api).
 - Gate: `make check` runs go-fmt-check, go-vet, go-lint, go-test,
   web-format-check, web-lint, web-typecheck and web-test, offline. A missing
   tool is recorded as skipped and fails the gate.
-- Outside the gate: `make build`, `make test-integration` (needs `make db` and goose; each package gets its own database),
-  `make vuln` (needs the network), `make migrate`, `make sqlc`, `make fix`,
-  `make doctor`.
+- Outside the gate: `make build`, `make test-integration` (needs `make db`
+  and goose; each package gets its own database), `make vuln` (needs the
+  network), `make migrate`, `make sqlc`, `make fix`, `make doctor`.
 - Toolchain: Go 1.26.8; sqlc v1.31.1, goose v3.28.0, golangci-lint v2.13.2 and
   govulncheck v1.8.0 installed with `go install` into `$(go env GOPATH)/bin`
   (the Makefile puts it on PATH); Node 24 (`web/.nvmrc`, run `nvm use` in

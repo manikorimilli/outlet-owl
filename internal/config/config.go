@@ -7,13 +7,27 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"time"
 )
+
+// minJWTSecretBytes is the shortest signing secret accepted: 32 bytes is the
+// HS256 key size (phase 1 server LLD, section 7).
+const minJWTSecretBytes = 32
 
 // Config is the validated process configuration.
 type Config struct {
 	Port        string
 	LogLevel    slog.Level
 	DatabaseURL string
+	// JWTSecret signs the session cookie (ADR-0007). Never log it; changing
+	// it signs everyone out.
+	JWTSecret []byte
+	// UsersFile is the path of the users file loaded at start (HLD section 3).
+	UsersFile string
+	// BrandName and BrandTimezone describe the one brand per installation
+	// (Q-001); GET /me returns both, and the timezone bounds the weeks.
+	BrandName     string
+	BrandTimezone *time.Location
 }
 
 // Load reads and validates the environment.
@@ -22,6 +36,9 @@ func Load() (Config, error) {
 	c := Config{
 		Port:        envOr("PORT", "8080"),
 		DatabaseURL: os.Getenv("DATABASE_URL"),
+		JWTSecret:   []byte(os.Getenv("JWT_SECRET")),
+		UsersFile:   envOr("USERS_FILE", "users.json"),
+		BrandName:   strings.TrimSpace(os.Getenv("BRAND_NAME")),
 	}
 	if c.DatabaseURL == "" {
 		problems = append(problems, "DATABASE_URL is required (see .env.example)")
@@ -37,6 +54,24 @@ func Load() (Config, error) {
 		c.LogLevel = slog.LevelError
 	default:
 		problems = append(problems, "LOG_LEVEL must be debug, info, warn or error")
+	}
+	// The secret's value never appears in a message, only its length rule.
+	switch n := len(c.JWTSecret); {
+	case n == 0:
+		problems = append(problems, "JWT_SECRET is required (generate one: openssl rand -hex 32)")
+	case n < minJWTSecretBytes:
+		problems = append(problems, fmt.Sprintf("JWT_SECRET must be at least %d bytes (generate one: openssl rand -hex 32)", minJWTSecretBytes))
+	}
+	if c.BrandName == "" {
+		problems = append(problems, "BRAND_NAME is required (the brand shown after sign-in)")
+	}
+	tzName := envOr("BRAND_TIMEZONE", "Asia/Kolkata")
+	// "Local" would make the weeks depend on the machine, and GET /me must
+	// return an IANA zone name.
+	if loc, err := time.LoadLocation(tzName); err != nil || tzName == "Local" {
+		problems = append(problems, fmt.Sprintf("BRAND_TIMEZONE %q is not an IANA time zone (for example Asia/Kolkata)", tzName))
+	} else {
+		c.BrandTimezone = loc
 	}
 	if len(problems) > 0 {
 		return Config{}, fmt.Errorf("config: %s", strings.Join(problems, "; "))
