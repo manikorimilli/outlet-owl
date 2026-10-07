@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"regexp"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"golang.org/x/crypto/bcrypt"
@@ -33,8 +33,20 @@ const maxFieldRunes = 200
 // a few kilobytes.
 const maxUsersFileBytes = 1 << 20
 
-// emailShape matches chk_users_email_shape in the database.
-var emailShape = regexp.MustCompile(`^[^@\s]+@[^@\s]+$`)
+// emailShapeOK reports whether email passes chk_users_email_shape in the
+// database, '^[^@[:space:]]+@[^@[:space:]]+$', so an entry the parser keeps
+// never stops the sync at start. Go's \s is narrower than [:space:] (no \v,
+// no Unicode spaces), so every unicode.IsSpace rune is refused instead: a
+// superset of what PostgreSQL 16 in the en_US.utf8 locale treats as space
+// (the integration test in usersfile_integration_test.go measures it).
+// PostgreSQL text cannot hold NUL, so that is refused too.
+func emailShapeOK(email string) bool {
+	local, domain, ok := strings.Cut(email, "@")
+	if !ok || local == "" || domain == "" || strings.Contains(domain, "@") {
+		return false
+	}
+	return !strings.ContainsFunc(email, func(r rune) bool { return unicode.IsSpace(r) || r == 0 })
+}
 
 // UsersFileEntry is one account in the users file, trimmed and checked.
 // Entry is its 1-based position in the file, for log lines; JSON never sets it.
@@ -192,7 +204,7 @@ func checkEntry(n int, e UsersFileEntry) *EntryProblem {
 		return problem("email", "blank")
 	case utf8.RuneCountInString(e.Email) > maxFieldRunes:
 		return problem("email", "over 200 characters")
-	case !emailShape.MatchString(e.Email):
+	case !emailShapeOK(e.Email):
 		return problem("email", "not an email address")
 	case e.Name == "":
 		return problem("name", "blank")

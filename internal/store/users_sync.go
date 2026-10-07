@@ -23,6 +23,12 @@ type SyncUsersResult struct {
 	Skipped []auth.EntryProblem
 }
 
+// upsert is one account to write, with its entry number in the users file.
+type upsert struct {
+	entry  int
+	params UpsertUserParams
+}
+
 // SyncUsers applies the parsed users file in one transaction (phase 1 server
 // LLD, section 5): it resolves each manager's outlet by name and skips the
 // managers whose outlet does not exist, marks every account missing from the
@@ -50,11 +56,11 @@ func (s *Store) SyncUsers(ctx context.Context, entries []auth.UsersFileEntry) (S
 			outletIDs[strings.ToLower(o.Name)] = o.ID
 		}
 
-		var managers, admins []UpsertUserParams
+		var managers, admins []upsert
 		for _, e := range entries {
 			p := UpsertUserParams{Email: e.Email, Name: e.Name, Role: UserRole(e.Role), PasswordHash: e.PasswordHash}
 			if e.Role != auth.RoleOutletManager {
-				admins = append(admins, p)
+				admins = append(admins, upsert{entry: e.Entry, params: p})
 				continue
 			}
 			id, ok := outletIDs[strings.ToLower(*e.Outlet)]
@@ -66,7 +72,7 @@ func (s *Store) SyncUsers(ctx context.Context, entries []auth.UsersFileEntry) (S
 				continue
 			}
 			p.OutletID = &id
-			managers = append(managers, p)
+			managers = append(managers, upsert{entry: e.Entry, params: p})
 		}
 		kept := append(managers, admins...) // managers first, the admin last
 		if len(admins) == 0 {
@@ -74,16 +80,19 @@ func (s *Store) SyncUsers(ctx context.Context, entries []auth.UsersFileEntry) (S
 		}
 
 		emails := make([]string, len(kept))
-		for i, p := range kept {
-			emails[i] = p.Email
+		for i, u := range kept {
+			emails[i] = u.params.Email
 		}
 		if res.Removed, err = q.MarkUsersRemovedExcept(ctx, emails); err != nil {
 			return fmt.Errorf("mark removed users: %w", err)
 		}
-		for _, p := range kept {
-			n, err := q.UpsertUser(ctx, p)
+		for _, u := range kept {
+			n, err := q.UpsertUser(ctx, u.params)
 			if err != nil {
-				return fmt.Errorf("upsert user (role %s): %w", p.Role, err)
+				// The entry number finds the line; no field value goes in
+				// the message, and the database error names only the
+				// constraint, never the row.
+				return fmt.Errorf("upsert users file entry %d (role %s): %w", u.entry, u.params.Role, err)
 			}
 			res.Changed += n
 		}

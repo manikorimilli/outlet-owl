@@ -211,6 +211,28 @@ func TestSyncUsers_RollsBackOnFailure(t *testing.T) {
 	}
 }
 
+func TestSyncUsers_RefusedEntryIsNamedWithoutItsValues(t *testing.T) {
+	s, ctx := newSyncStore(t, "Koramangala")
+	// The parser refuses this email now; a check it misses still has to say
+	// which entry stopped the start.
+	bad := managerEntry("arjun\v@example.in", "Koramangala")
+
+	_, err := s.SyncUsers(ctx, []auth.UsersFileEntry{adminEntry("a@example.in"), bad})
+
+	if err == nil {
+		t.Fatal("want the email check to refuse the entry")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "entry 2") || !strings.Contains(msg, "chk_users_email_shape") {
+		t.Fatalf("error %q does not name entry 2 and the check it broke", msg)
+	}
+	for _, value := range []string{syncHash, bad.Email, "arjun", bad.Name} {
+		if strings.Contains(msg, value) {
+			t.Fatalf("error %q carries the value %q", msg, value)
+		}
+	}
+}
+
 func assertOneActiveAdmin(ctx context.Context, t *testing.T, s *Store, want string) {
 	t.Helper()
 	var active []string
