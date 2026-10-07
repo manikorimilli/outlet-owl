@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: OutletOwl API
-  version: 1.1.0
+  version: 1.1.1
   description: |
     The REST API the OutletOwl web UI calls: sign-in, outlets, CSV import, the review
     list and replies, the dashboard reports, tagging status and the weekly digest. One
@@ -37,6 +37,8 @@ info:
       why: "Each has a natural key the database enforces: the outlet name ignoring case, and one reply per review. A repeat returns the existing record (draft, replied) or 409 outlet_name_taken."
     - rule: "Reply writes carry based_on_updated_at, the reply's updated_at the client last read (null when it saw no reply); a mismatch is 409 reply_changed."
       why: "An outlet may have several managers and a manager may have two tabs open; a manager must only save over, or approve, text they have seen (REQ-024, product owner 2026-10-06)."
+    - rule: "Every POST, PUT, PATCH and DELETE is refused with 403 cross_site_request when the browser marks it as coming from another origin: Sec-Fetch-Site other than same-origin or none, or, when Sec-Fetch-Site is missing, an Origin whose host differs from Host. A request with neither header (curl, tests, other non-browser clients) is allowed. GET, HEAD and OPTIONS are never refused."
+      why: "SameSite=Strict treats every port on localhost as the same site, so a page on another local port would send the session cookie; the check closes that gap without a token. The UI calls the API from the same origin: the Go binary serves it, and in development the Vite proxy forwards the browser's own Sec-Fetch-Site, Origin and Host (server LLD phase 1, section 5)."
     - rule: "No rate limiting and no rate-limit headers."
       why: "A local product with about 6 signed-in staff; neither the PRD nor the HLD asks for limits, and the model spend has its own USD 8 stop."
     - rule: "CSV uploads are capped at 5 MB; review and reply text at 5,000 characters; outlet name, source, reviewer name and file name at 200."
@@ -75,6 +77,7 @@ paths:
         response never says which emails exist.
       tags: [auth]
       x-story-ids: [US-00-001]
+      x-error-codes: { '403': [cross_site_request] }
       security: []  # public: this is how a caller gets a session
       requestBody:
         required: true
@@ -95,6 +98,8 @@ paths:
               schema: { $ref: '#/components/schemas/Me' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/InvalidCredentials' }
+        '403': { $ref: '#/components/responses/CrossSiteRequest' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
         '500': { $ref: '#/components/responses/InternalError' }
 
@@ -106,6 +111,7 @@ paths:
       tags: [auth]
       x-story-ids: [US-00-001]
       x-idempotent: true
+      x-error-codes: { '403': [cross_site_request] }
       security: []  # public: signing out must work with an expired cookie
       responses:
         '204':
@@ -114,6 +120,7 @@ paths:
             Set-Cookie:
               description: outletowl_session with Max-Age=0.
               schema: { type: string }
+        '403': { $ref: '#/components/responses/CrossSiteRequest' }
         '500': { $ref: '#/components/responses/InternalError' }
 
   /me:
@@ -187,11 +194,12 @@ paths:
       summary: Add an outlet (brand admin)
       description: >-
         Names are unique ignoring capitals and are stored trimmed. A name that already
-        exists is 409 outlet_name_taken with the existing name in details, which also
-        answers a repeated request.
+        exists is 409 outlet_name_taken, which also answers a repeated request; its
+        details hold one item, field name, whose reason is the existing outlet's name as
+        stored (for example "Koramangala" when "koramangala" was sent), so the UI can show it.
       tags: [outlets]
       x-story-ids: [US-01-001]
-      x-error-codes: { '403': [role_not_allowed], '409': [outlet_name_taken] }
+      x-error-codes: { '403': [role_not_allowed, cross_site_request], '409': [outlet_name_taken] }
       requestBody:
         required: true
         content:
@@ -211,6 +219,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
         '500': { $ref: '#/components/responses/InternalError' }
 
@@ -228,7 +237,7 @@ paths:
         through the connector interface; CSV is the only connector (REQ-004, REQ-005).
       tags: [imports]
       x-story-ids: [US-01-002]
-      x-error-codes: { '400': [malformed_request, csv_invalid], '403': [role_not_allowed] }
+      x-error-codes: { '400': [malformed_request, csv_invalid], '403': [role_not_allowed, cross_site_request] }
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -405,7 +414,7 @@ paths:
       tags: [reviews]
       x-story-ids: [US-00-002]
       x-idempotent: true
-      x-error-codes: { '403': [role_not_allowed], '503': [budget_exhausted, model_unavailable] }
+      x-error-codes: { '403': [role_not_allowed, cross_site_request], '503': [budget_exhausted, model_unavailable] }
       responses:
         '200':
           description: The reply, stored or just drafted
@@ -450,7 +459,7 @@ paths:
         reply is approved: an approved text never changes.
       tags: [reviews]
       x-story-ids: [US-00-003, US-00-002]
-      x-error-codes: { '403': [role_not_allowed], '409': [reply_changed, draft_in_progress, already_replied] }
+      x-error-codes: { '403': [role_not_allowed, cross_site_request], '409': [reply_changed, draft_in_progress, already_replied] }
       requestBody:
         required: true
         content:
@@ -488,7 +497,7 @@ paths:
       tags: [reviews]
       x-story-ids: [US-00-003]
       x-idempotent: true
-      x-error-codes: { '403': [role_not_allowed], '409': [reply_changed, draft_in_progress] }
+      x-error-codes: { '403': [role_not_allowed, cross_site_request], '409': [reply_changed, draft_in_progress] }
       requestBody:
         required: true
         content:
@@ -619,7 +628,7 @@ paths:
         after a failure, use a new key.
       tags: [digests]
       x-story-ids: [US-01-009]
-      x-error-codes: { '403': [role_not_allowed], '502': [mail_unavailable] }
+      x-error-codes: { '403': [role_not_allowed, cross_site_request], '502': [mail_unavailable] }
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       responses:
@@ -698,6 +707,7 @@ components:
         - { code: unauthorized, status: 401, meaning: "No session cookie, or an invalid or expired one; sign in again." }
         - { code: invalid_credentials, status: 401, meaning: "Email and password do not match an active account." }
         - { code: role_not_allowed, status: 403, meaning: "The caller can see the record but their role may not take this action (a manager adding an outlet, the brand admin drafting or replying)." }
+        - { code: cross_site_request, status: 403, meaning: "A write came from a page on another origin (another site, or another port on this machine); nothing was changed. Use OutletOwl from its own address." }
         - { code: not_found, status: 404, meaning: "No such record, or it belongs to an outlet the caller may not see." }
         - { code: outlet_name_taken, status: 409, meaning: "An outlet with this name, ignoring capitals, already exists; details names it." }
         - { code: reply_changed, status: 409, meaning: "The reply changed since the client read it; reload it and apply the change again." }
@@ -1187,12 +1197,19 @@ components:
           schema: { $ref: '#/components/schemas/Error' }
           example: { error: { code: invalid_credentials, message: Email or password is wrong., request_id: req_01J9Z9 } }
     Forbidden:
-      description: The caller's role may not take this action
-      x-error-codes: [role_not_allowed]
+      description: The caller's role may not take this action, or the write came from another origin
+      x-error-codes: [role_not_allowed, cross_site_request]
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
           example: { error: { code: role_not_allowed, message: Only the outlet's manager can mark this review replied., request_id: req_01J9ZA } }
+    CrossSiteRequest:
+      description: The write came from a page on another origin; nothing was changed
+      x-error-codes: [cross_site_request]
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { code: cross_site_request, message: This request came from another site and was refused. Open OutletOwl at its own address and try again., request_id: req_01J9ZL } }
     NotFound:
       description: No such record for this caller
       x-error-codes: [not_found]

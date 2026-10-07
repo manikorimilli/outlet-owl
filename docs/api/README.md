@@ -2,9 +2,20 @@
 
 The REST contract between the Go server and the React UI (ADR-0005, tenet 7).
 
-Version: 1.1.0 (v2; base: 1.0.0, commit a7d1998)
+Version: 1.1.1 (v3; base: 1.1.0, commit 6cb6409)
 
-## Changes from 1.0.0
+## Changes from 1.1.0
+
+Why this revision: the critic review of the phase 1 low-level designs (2026-10-07) found that login and add-outlet return 415 without the spec saying so, and that SameSite=Strict alone does not stop a page on another localhost port from sending the session cookie. The product owner approved both fixes in session on 2026-10-07.
+
+| Section | Change | Driven by | Impact |
+| --- | --- | --- | --- |
+| `POST /auth/login`, `POST /outlets` | 415 `unsupported_media_type` listed (the server already planned it for a body that is not `application/json`) | phase 1 critic; tenet 7 | documents existing behaviour; the UI always sends JSON |
+| `x-conventions`, `Error` codes, every POST and PUT | New 403 `cross_site_request`: a write marked cross-origin by `Sec-Fetch-Site` (or, when it is missing, by an `Origin` that differs from `Host`) is refused; a request with neither header is allowed | phase 1 critic; product owner 2026-10-07 | new error code on writes; same-origin UI calls, including through the Vite proxy, are unaffected |
+| `components.responses` | New `CrossSiteRequest` (login, logout); `Forbidden` also lists `cross_site_request` | the same | responses only |
+| `POST /outlets` description | 409 `outlet_name_taken` carries the existing name in `details[0].reason` (field `name`) | phase 1 critic NIT | states what the UI reads; no shape change |
+
+## Changes from 1.0.0 (1.1.0)
 
 Why this revision: data model v2 stores why a review is urgent (approved by the product owner on 2026-10-06), and screens S-02, S-04, S-05 and S-08 show the reason beside each urgent review.
 
@@ -50,6 +61,7 @@ The house rules are in the Bearing `openapi-spec` style reference and are copied
 - `Idempotency-Key` on `POST /imports` and `POST /digests` is kept for the record's lifetime, with no body hash;
 - `POST /outlets`, the draft and mark-replied rely on natural keys instead of `Idempotency-Key`;
 - reply writes carry `based_on_updated_at`, and a stale write is 409 `reply_changed`;
+- writes from another origin are refused with 403 `cross_site_request` (`Sec-Fetch-Site`, with an `Origin` to `Host` fallback);
 - no rate limiting;
 - versioning is `/api/v1` only, with no `X-API-Version` date header.
 
@@ -58,3 +70,5 @@ Limits decided by the product owner on 2026-10-06: CSV uploads up to 5 MB; revie
 ## Revision history
 
 - 1.0.0 (2026-10-06, commit a7d1998): first version.
+- 1.1.0 (2026-10-06, commit 6cb6409): `urgent_reasons` on `Tags`.
+- 1.1.1 (2026-10-07): 415 on login and add-outlet; 403 `cross_site_request` on writes; the 409 outlet name detail stated.

@@ -2,6 +2,18 @@
 
 - Task: none (no task ids yet). HLD: [review-intelligence-hld.md](review-intelligence-hld.md) section 12 phase 1. ADRs: [0002](../adr/0002-use-react-and-vite-for-the-ui.md), [0005](../adr/0005-use-rest-with-openapi-for-the-api.md), [0007](../adr/0007-use-jwt-cookies-for-sign-in.md)
 - Author: unattributed (no `.bearing/company.json`), 2026-10-07, status Draft
+- Version: v2 (2026-10-07): the critic's web findings fixed, and the cross-origin write check (spec 1.1.1) kept working from the UI
+
+Changes from v1 (commit 13182d1):
+
+| Section | Change |
+| --- | --- |
+| 2, 9 | The session context and `useSession` move to `app/session-context.ts`, so `session.tsx` exports components only and web-lint stays green |
+| 4.1, 6, 8 | The first visit with no cookie shows no "session ended" notice |
+| 4.4, 5, 8 | After an outlet is added the list is refetched and an older load is discarded, so the new row never vanishes; the order comes from the server |
+| 2, 5, 8 | The Vite proxy keeps the browser's `Host`, `Origin` and `Sec-Fetch-Site` (no `changeOrigin`), and a test pins it; a 403 `cross_site_request` shows the server's message |
+| 5 | Data loading never calls `setState` synchronously inside an effect (eslint-plugin-react-hooks 7 rule) |
+| 9 | W2 split into the router and session (W2) and the shell (W3), so no item passes 400 lines; sign-in and outlets become W4 and W5 |
 - Companion: [phase-1-server-lld.md](phase-1-server-lld.md) (the endpoints these screens call)
 - Screens: [S-01 Sign in](screens/app/S-01-sign-in.html), [S-06 Outlets](screens/app/S-06-outlets.html); navigation from `docs/design/design.json` (`navigation`)
 
@@ -33,7 +45,8 @@ Follows the `bearing-apps:react` layout without the parts this repository has no
 | `web/src/App.tsx`, `web/src/App.test.tsx` | removed: replaced by `src/app/` | -30 |
 | `web/src/app/App.tsx` (new) | `BrowserRouter`, `SessionProvider`, `AppRoutes` | 20 |
 | `web/src/app/routes.tsx` (new) | the route table (section 3) | 40 |
-| `web/src/app/session.tsx` (new) | `SessionProvider`, `useSession`, `RequireSession`, `RequireRole` | 120 |
+| `web/src/app/session-context.ts` (new) | the `Session` type, the React context and the `useSession` hook (no components, so `react-refresh/only-export-components` passes) | 30 |
+| `web/src/app/session.tsx` (new) | components only: `SessionProvider`, `RequireSession`, `RequireRole` | 100 |
 | `web/src/components/AppShell.tsx` (new) | top bar (product, brand, person and role, Sign out), side nav from the role, `<Outlet />` | 90 |
 | `web/src/components/OverviewPlaceholder.tsx` (new) | `/` until phase 4: "The overview arrives with the dashboard." plus the caller's outlet for a manager | 20 |
 | `web/src/features/auth/api.ts` (new) | `login`, `logout`, `getMe` | 30 |
@@ -48,7 +61,8 @@ Follows the `bearing-apps:react` layout without the parts this repository has no
 | `web/src/styles/app.css` (new) | the classes S-01, S-06 and the shell use, ported from `docs/design/screens/app/screens.css` | 220 |
 | `web/package.json`, `pnpm-lock.yaml` | `react-router` (dependency), `openapi-typescript` (dev dependency), script `api-types` | +5 |
 | `Makefile` | `web-api-types` (writes the file) and `web-api-types-check` (a gate, added to `GATES`) | +12 |
-| `web/vite.config.ts` | unchanged: `/api` is already forwarded to :8080 | 0 |
+| `web/vite.config.ts` | unchanged: `/api` is forwarded to :8080 with the string shorthand, which leaves `changeOrigin` off, so the browser's `Host`, `Origin` and `Sec-Fetch-Site` reach the server's cross-origin check unchanged (server LLD section 5) | 0 |
+| `web/src/app/vite-proxy.test.ts` (new) | pins that proxy setting | 20 |
 
 No hand-written file is expected to pass 400 lines. Tests sit beside the code as `*.test.tsx`.
 
@@ -59,7 +73,7 @@ Every API shape comes from `web/src/lib/api-types.ts`, generated from `api/opena
 | Type | Where | Holds | Validated in |
 | --- | --- | --- | --- |
 | `ApiError` | `lib/api.ts` | `status`, `code`, `message`, `details`, `requestId`; `code` is `network` when `fetch` itself failed | `apiFetch`, the only place that reads an error body |
-| `Session` | `app/session.tsx` | `{ status: "loading" } \| { status: "signed-out", expired: boolean } \| { status: "signed-in", me: Me } \| { status: "error", error: ApiError }` | `SessionProvider` |
+| `Session` | `app/session-context.ts` | `{ status: "loading" } \| { status: "signed-out", expired: boolean } \| { status: "signed-in", me: Me } \| { status: "error", error: ApiError }` | `SessionProvider` |
 | sign-in form | `features/auth/SignInPage.tsx` | email, password | the browser (`type="email"`, `required`, `maxLength=200`); the server is the authority and its 422 is shown per field |
 | outlet name | `features/outlets/AddOutletForm.tsx` | name | `required`, `maxLength=200`; the server trims and decides; its 422 and 409 are shown on the field |
 
@@ -93,8 +107,8 @@ sequenceDiagram
         SP-->>G: signed-in
         G-->>U: render the route
     else 401 unauthorized
-        API-->>SP: ApiError(401)
-        SP-->>G: signed-out, expired = false
+        API-->>SP: ApiError(401); the unauthorized handler does nothing while the status is loading
+        SP-->>G: signed-out, expired = false (no "session ended" notice on a first visit)
         G-->>U: Navigate /sign-in (replace)
     else network failure or 5xx
         API-->>SP: ApiError(network | internal)
@@ -173,9 +187,13 @@ sequenceDiagram
     F->>API: POST /api/v1/outlets {name}
     alt 201
         API-->>F: OutletSummary
-        F-->>P: add the row, keep the order by name, clear the field, move focus to the new row
+        F-->>P: outlet added (id)
+        P->>API: GET /api/v1/outlets (a newer load; any load still in flight is discarded when it returns)
+        P-->>U: the table in the server's order; clear the field; move focus to the new row
     else 409 outlet_name_taken
         F-->>U: "An outlet named <details[0].reason> already exists. Names are matched without regard to capitals, so use a different name."
+    else 403 cross_site_request
+        F-->>U: the server's message (the page was not opened from OutletOwl's own address)
     else 422 validation_failed
         F-->>U: blank: "Enter the outlet name."; too_long: "Use at most 200 characters."
     else 403 role_not_allowed
@@ -216,7 +234,9 @@ The browser reaches the server only through `apiFetch` in `lib/api.ts`: same-ori
 | `listOutlets` | `GET /outlets` (`listOutlets`) | `OutletsPage` mount and Reload |
 | `createOutlet` | `POST /outlets` (`createOutlet`) | add form submit |
 
-No client cache: each screen fetches on mount. A double press cannot send two requests because the submit buttons are disabled while a request is in flight; the server's unique outlet name answers any repeat that still gets through (409, tenet 8). Indexes, transactions and migrations: none on this side.
+No client cache: each screen fetches on mount. Loading follows one pattern that eslint-plugin-react-hooks 7 (`set-state-in-effect`) accepts: the state starts as `loading` in `useState`, the effect only starts the request and calls `setState` in its promise callbacks, and Reload sets `loading` in its click handler. Each load carries a sequence number; a response whose number is not the latest is dropped, so an older outlet list can never overwrite a newer one. The first step of W2 runs `make web-lint` on this pattern before the screens use it.
+
+Cross-origin writes: every call is same-origin (section 5 of the server LLD), so the server's check never refuses the UI. `apiFetch` sets no `Origin` or `Sec-Fetch-Site` itself (browsers forbid it); it relies on the browser and on the Vite proxy keeping them. A double press cannot send two requests because the submit buttons are disabled while a request is in flight; the server's unique outlet name answers any repeat that still gets through (409, tenet 8). Indexes, transactions and migrations: none on this side.
 
 ## 6. Errors
 
@@ -225,7 +245,8 @@ No client cache: each screen fetches on mount. A double press cannot send two re
 | `ApiError` from an error envelope | `lib/api.ts` `apiFetch` | not wrapped | the calling screen, chosen by `code` (section 4) |
 | `ApiError` with `code: "network"` | `apiFetch`, when `fetch` throws | not wrapped | the screen's "server did not answer" copy |
 | `ApiError` with `code: "internal"` for a body that is not the envelope | `apiFetch` | not wrapped | as 5xx |
-| 401 `unauthorized` on any call but login | `apiFetch` | calls the handler `SessionProvider` registered | sign-in with the expired notice (4.3) |
+| 401 `unauthorized` on any call but login | `apiFetch` | calls the handler `SessionProvider` registered, which ignores it while the session is still loading | sign-in with the expired notice (4.3); a first visit gets no notice (4.1) |
+| 403 `cross_site_request` | server | not wrapped | the screen shows the server's message; reachable only when the page was opened from another address |
 | 401 `invalid_credentials` | server | not wrapped | `SignInPage`, both fields marked |
 | render error | any component | n/a | not handled in phase 1: an error boundary arrives with the dashboard (assumption below) |
 
@@ -244,11 +265,13 @@ API client (`lib/api.test.ts`):
 - `apiFetch parses the error envelope into ApiError`
 - `apiFetch reports a failed fetch as code network`
 - `apiFetch calls the unauthorized handler on 401 unauthorized`
+- `the Vite proxy forwards /api without changeOrigin` (`app/vite-proxy.test.ts`)
 - `apiFetch does not call the unauthorized handler on 401 invalid_credentials`
 
 Session and routing (`app/session.test.tsx`, `app/routes.test.tsx`):
 
 - `RequireSession sends a signed-out visitor to /sign-in`
+- `a first visit with no cookie shows no expired notice`
 - `RequireSession shows the reload error when /me fails with 500`
 - `RequireRole sends an outlet manager from /outlets to /`, proves AC-US-01-001-2 on screen.
 - `a 401 during use lands on /sign-in?expired=1`
@@ -276,22 +299,25 @@ Outlets (`features/outlets/OutletsPage.test.tsx`, `AddOutletForm.test.tsx`):
 - `a failed load shows the reload message and Reload outlets refetches`
 - `an outlet with no managers shows the no-manager badge`
 - `an added outlet appears in the table in name order`, proves AC-US-01-001-1.
+- `an outlet added while the first load is in flight still appears` (the older list is discarded)
+- `a 403 cross_site_request shows the server's message`
 - `a 409 shows the existing name from details`
 - `a 422 too_long shows the length message`
 - `an outlet name is rendered as text` (a name containing `<b>` shows the characters, tenet 6)
 
-End-to-end: none in phase 1. The repository has no browser test runner and adding one is a separate decision; the sign-in and add-outlet flow is checked by hand against `make dev` and `make web-dev` (work item W4).
+End-to-end: none in phase 1. The repository has no browser test runner and adding one is a separate decision; the sign-in and add-outlet flow is checked by hand against `make dev` and `make web-dev` (work item W5).
 
 ## 9. Work breakdown
 
-Each item is one commit on its own branch, leaves `make check` green, and comes after server items 1 to 8 in [phase-1-server-lld.md](phase-1-server-lld.md) section 9, so a manual run against `make dev` works at every step.
+Each item is one commit on its own branch, leaves `make check` green, and comes after server items 1 to 10 in [phase-1-server-lld.md](phase-1-server-lld.md) section 9, so a manual run against `make dev` works at every step.
 
 - **W1. Generated API types and their gate.** Adds `openapi-typescript` (dev). `web/package.json` script `api-types`, `web/src/lib/api-types.ts` (generated), `Makefile` `web-api-types` and `web-api-types-check` added to `GATES`, `AGENTS.md` gate list. About 30 hand-written lines plus the generated file.
-- **W2. API client, router, session and shell.** Adds `react-router`. `lib/api.ts`, `features/auth/api.ts` (`getMe`, `login`, `logout`), `app/App.tsx`, `app/routes.tsx`, `app/session.tsx`, `components/AppShell.tsx`, `components/OverviewPlaceholder.tsx`, `styles/tokens.css`, the shell and layout part of `styles/app.css`, `main.tsx`; removes `src/App.tsx` and `src/App.test.tsx`. Tests: the API client, session, routing and shell tests. About 390 lines.
-- **W3. S-01 sign-in.** `features/auth/SignInPage.tsx`, the sign-in part of `styles/app.css`, the sign-in tests. About 260 lines.
-- **W4. S-06 outlets.** `features/outlets/api.ts`, `OutletsPage.tsx`, `OutletTable.tsx`, `AddOutletForm.tsx`, the table and form part of `styles/app.css`, the outlets tests, then the manual run of sign-in, add outlet, sign out and the expired notice. About 380 lines.
+- **W2. API client, router and session.** Adds `react-router`. First step: `make web-lint` on the loading pattern (section 5). `lib/api.ts`, `features/auth/api.ts` (`getMe`, `login`, `logout`), `app/App.tsx`, `app/routes.tsx` (the guarded routes render a bare `<Outlet />` until W3), `app/session-context.ts`, `app/session.tsx`, `app/vite-proxy.test.ts`, `components/OverviewPlaceholder.tsx`, `styles/tokens.css`, `main.tsx`; removes `src/App.tsx` and `src/App.test.tsx`. Tests: the API client, proxy, session and routing tests. About 270 lines.
+- **W3. App shell.** `components/AppShell.tsx`, the shell and layout part of `styles/app.css`, `app/routes.tsx` (the guarded routes render inside the shell). Tests: the shell tests. About 170 lines.
+- **W4. S-01 sign-in.** `features/auth/SignInPage.tsx`, the sign-in part of `styles/app.css`, the sign-in tests. About 260 lines.
+- **W5. S-06 outlets.** `features/outlets/api.ts`, `OutletsPage.tsx`, `OutletTable.tsx`, `AddOutletForm.tsx`, the table and form part of `styles/app.css`, the outlets tests, then the manual run of sign-in, add outlet, sign out and the expired notice. About 380 lines.
 
-Order check: W1 defines the types every later item imports; W2 defines `apiFetch`, `useSession`, the guards and the shell that W3 and W4 render into; the session provider and Sign out need `getMe` and `logout`, so `features/auth/api.ts` lands in W2 and W3 adds only the page. Largest item: about 390 lines.
+Order check: W1 defines the types every later item imports; W2 defines `apiFetch`, `useSession` (in `session-context.ts`), the guards and `features/auth/api.ts` (the session provider needs `getMe`); W3 needs `useSession` and `logout` from W2; W4 and W5 render inside the W3 shell. Largest item: about 380 lines (W5).
 
 ## 10. Assumptions
 
@@ -301,4 +327,4 @@ Order check: W1 defines the types every later item imports; W2 defines `apiFetch
 - assumption: the side nav row at 375 px is acceptable until phase 4 adds the bottom tab bar. Owner: product owner.
 - assumption: `details[0].reason` carries the existing outlet name on 409 `outlet_name_taken`, as the server LLD designs it. Owner: product owner, if the spec should state it.
 
-Critic: run 2026-10-07 on both LLDs; findings and verdict are in [phase-1-server-lld.md](phase-1-server-lld.md) section 10. Open for this document: W2 leaves web-lint red (`useSession` beside components), the first visit shows the expired notice, an outlet added during the first load can vanish, and the nit on the 409 `reason`.
+Critic: run 2026-10-07 on both LLDs; findings and verdict are in [phase-1-server-lld.md](phase-1-server-lld.md) section 10. The four that concern this document (web-lint and `useSession`, the first-visit notice, the vanishing outlet, the 409 `reason`) are fixed in v2 (changes table above).

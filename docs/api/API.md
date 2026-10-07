@@ -1,4 +1,4 @@
-# API: OutletOwl API v1.1.0
+# API: OutletOwl API v1.1.1
 
 Generated from `api/openapi.yaml` by openapi-spec (scripts/api_doc.py). Edit the spec, not this file.
 
@@ -14,6 +14,7 @@ Generated from `api/openapi.yaml` by openapi-spec (scripts/api_doc.py). Edit the
 | `malformed_request` | 400 | The body or a parameter could not be parsed, or a filter is not in the spec. |
 | `invalid_credentials` | 401 | Email and password do not match an active account. |
 | `unauthorized` | 401 | No session cookie, or an invalid or expired one; sign in again. |
+| `cross_site_request` | 403 | A write came from a page on another origin (another site, or another port on this machine); nothing was changed. Use OutletOwl from its own address. |
 | `role_not_allowed` | 403 | The caller can see the record but their role may not take this action (a manager adding an outlet, the brand admin drafting or replying). |
 | `not_found` | 404 | No such record, or it belongs to an outlet the caller may not see. |
 | `already_replied` | 409 | The reply is approved and its text can no longer change. |
@@ -47,8 +48,9 @@ Generated from `api/openapi.yaml` by openapi-spec (scripts/api_doc.py). Edit the
 14. Idempotency-Key is required on POST /imports and POST /digests and stored with the record for its lifetime; a repeat returns the first result whatever the body. Why: The data model stores the key as request_id under a unique constraint (tenet 8) and keeps no body hash; the record lives as long as the data, so there is no 24 hour expiry.
 15. POST /outlets, POST /reviews/{review_id}/draft and POST /reviews/{review_id}/replied take no Idempotency-Key. Why: Each has a natural key the database enforces: the outlet name ignoring case, and one reply per review. A repeat returns the existing record (draft, replied) or 409 outlet_name_taken.
 16. Reply writes carry based_on_updated_at, the reply's updated_at the client last read (null when it saw no reply); a mismatch is 409 reply_changed. Why: An outlet may have several managers and a manager may have two tabs open; a manager must only save over, or approve, text they have seen (REQ-024, product owner 2026-10-06).
-17. No rate limiting and no rate-limit headers. Why: A local product with about 6 signed-in staff; neither the PRD nor the HLD asks for limits, and the model spend has its own USD 8 stop.
-18. CSV uploads are capped at 5 MB; review and reply text at 5,000 characters; outlet name, source, reviewer name and file name at 200. Why: Decided by the product owner on 2026-10-06; 5 MB is about 15,000 reviews, and the limits close the data model's open length concern.
+17. Every POST, PUT, PATCH and DELETE is refused with 403 cross_site_request when the browser marks it as coming from another origin: Sec-Fetch-Site other than same-origin or none, or, when Sec-Fetch-Site is missing, an Origin whose host differs from Host. A request with neither header (curl, tests, other non-browser clients) is allowed. GET, HEAD and OPTIONS are never refused. Why: SameSite=Strict treats every port on localhost as the same site, so a page on another local port would send the session cookie; the check closes that gap without a token. The UI calls the API from the same origin: the Go binary serves it, and in development the Vite proxy forwards the browser's own Sec-Fetch-Site, Origin and Host (server LLD phase 1, section 5).
+18. No rate limiting and no rate-limit headers. Why: A local product with about 6 signed-in staff; neither the PRD nor the HLD asks for limits, and the model spend has its own USD 8 stop.
+19. CSV uploads are capped at 5 MB; review and reply text at 5,000 characters; outlet name, source, reviewer name and file name at 200. Why: Decided by the product owner on 2026-10-06; 5 MB is about 15,000 reviews, and the limits close the data model's open length concern.
 
 ## auth
 
@@ -58,8 +60,8 @@ Serves US-00-001.
 
 | Method | Path | Does | Auth | Success | Errors |
 | --- | --- | --- | --- | --- | --- |
-| POST | `/auth/login` | Sign in with email and password (`login`) | none | 200 Signed in; the cookie is set | 400 malformed_request, 400 csv_invalid, 401 invalid_credentials, 422 validation_failed, 500 internal |
-| POST | `/auth/logout` | Sign out (`logout`) | none | 204 Signed out; the cookie is cleared | 500 internal |
+| POST | `/auth/login` | Sign in with email and password (`login`) | none | 200 Signed in; the cookie is set | 400 malformed_request, 400 csv_invalid, 401 invalid_credentials, 403 cross_site_request, 415 unsupported_media_type, 422 validation_failed, 500 internal |
+| POST | `/auth/logout` | Sign out (`logout`) | none | 204 Signed out; the cookie is cleared | 403 cross_site_request, 500 internal |
 | GET | `/me` | The signed-in user, their outlet and the brand (`getMe`) | cookieAuth | 200 The caller | 401 unauthorized, 500 internal |
 
 Idempotency:
@@ -76,7 +78,7 @@ Serves US-01-001, US-00-001.
 | Method | Path | Does | Auth | Success | Errors |
 | --- | --- | --- | --- | --- | --- |
 | GET | `/outlets` | List outlets with their managers and review counts (`listOutlets`) | cookieAuth | 200 The outlets the caller may see | 401 unauthorized, 500 internal |
-| POST | `/outlets` | Add an outlet (brand admin) (`createOutlet`) | cookieAuth | 201 Created | 400 malformed_request, 400 csv_invalid, 401 unauthorized, 403 role_not_allowed, 409 outlet_name_taken, 422 validation_failed, 500 internal |
+| POST | `/outlets` | Add an outlet (brand admin) (`createOutlet`) | cookieAuth | 201 Created | 400 malformed_request, 400 csv_invalid, 401 unauthorized, 403 role_not_allowed, 403 cross_site_request, 409 outlet_name_taken, 415 unsupported_media_type, 422 validation_failed, 500 internal |
 
 Idempotency:
 
@@ -90,7 +92,7 @@ Serves US-01-002.
 
 | Method | Path | Does | Auth | Success | Errors |
 | --- | --- | --- | --- | --- | --- |
-| POST | `/imports` | Import reviews from a CSV file (brand admin) (`createImport`) | cookieAuth | 201 Imported; a repeat with the same Idempotency-Key returns this result again | 400 malformed_request, 400 csv_invalid, 401 unauthorized, 403 role_not_allowed, 413 file_too_large, 415 unsupported_media_type, 500 internal |
+| POST | `/imports` | Import reviews from a CSV file (brand admin) (`createImport`) | cookieAuth | 201 Imported; a repeat with the same Idempotency-Key returns this result again | 400 malformed_request, 400 csv_invalid, 401 unauthorized, 403 role_not_allowed, 403 cross_site_request, 413 file_too_large, 415 unsupported_media_type, 500 internal |
 
 Idempotency:
 
@@ -107,9 +109,9 @@ Serves US-01-003, US-01-006, US-01-008, US-00-001, US-01-007, US-00-002, US-00-0
 | GET | `/themes` | The configured theme list (`listThemes`) | cookieAuth | 200 The themes in display order | 401 unauthorized, 500 internal |
 | GET | `/reviews` | Search and filter reviews, newest first (`listReviews`) | cookieAuth | 200 One page | 400 malformed_request, 400 csv_invalid, 401 unauthorized, 404 not_found, 422 validation_failed, 500 internal |
 | GET | `/reviews/{review_id}` | One review with its tags, reply and the outlet's managers (`getReview`) | cookieAuth | 200 The review | 401 unauthorized, 404 not_found, 500 internal |
-| POST | `/reviews/{review_id}/draft` | Get the stored draft, or draft one with the model (outlet manager) (`createReplyDraft`) | cookieAuth | 200 The reply, stored or just drafted; 202 Another request is drafting this review; call again after Retry-After seconds | 401 unauthorized, 403 role_not_allowed, 404 not_found, 500 internal, 503 budget_exhausted, 503 model_unavailable |
-| PUT | `/reviews/{review_id}/reply` | Save the reply text (outlet manager) (`saveReply`) | cookieAuth | 200 The saved reply, with its new updated_at | 400 malformed_request, 400 csv_invalid, 401 unauthorized, 403 role_not_allowed, 404 not_found, 409 reply_changed, 409 draft_in_progress, 409 already_replied, 415 unsupported_media_type, 422 validation_failed, 500 internal |
-| POST | `/reviews/{review_id}/replied` | Approve the reply text and mark the review replied (outlet manager) (`markReplied`) | cookieAuth | 200 The replied reply | 400 malformed_request, 400 csv_invalid, 401 unauthorized, 403 role_not_allowed, 404 not_found, 409 reply_changed, 409 draft_in_progress, 415 unsupported_media_type, 422 validation_failed, 500 internal |
+| POST | `/reviews/{review_id}/draft` | Get the stored draft, or draft one with the model (outlet manager) (`createReplyDraft`) | cookieAuth | 200 The reply, stored or just drafted; 202 Another request is drafting this review; call again after Retry-After seconds | 401 unauthorized, 403 role_not_allowed, 403 cross_site_request, 404 not_found, 500 internal, 503 budget_exhausted, 503 model_unavailable |
+| PUT | `/reviews/{review_id}/reply` | Save the reply text (outlet manager) (`saveReply`) | cookieAuth | 200 The saved reply, with its new updated_at | 400 malformed_request, 400 csv_invalid, 401 unauthorized, 403 role_not_allowed, 403 cross_site_request, 404 not_found, 409 reply_changed, 409 draft_in_progress, 409 already_replied, 415 unsupported_media_type, 422 validation_failed, 500 internal |
+| POST | `/reviews/{review_id}/replied` | Approve the reply text and mark the review replied (outlet manager) (`markReplied`) | cookieAuth | 200 The replied reply | 400 malformed_request, 400 csv_invalid, 401 unauthorized, 403 role_not_allowed, 403 cross_site_request, 404 not_found, 409 reply_changed, 409 draft_in_progress, 415 unsupported_media_type, 422 validation_failed, 500 internal |
 
 Idempotency:
 
@@ -147,7 +149,7 @@ Serves US-01-009.
 
 | Method | Path | Does | Auth | Success | Errors |
 | --- | --- | --- | --- | --- | --- |
-| POST | `/digests` | Generate the weekly digest and email it to the brand admin (`createDigest`) | cookieAuth | 201 Sent; 202 A repeat of a request whose digest is still marked sending; nothing is sent again | 400 malformed_request, 400 csv_invalid, 401 unauthorized, 403 role_not_allowed, 500 internal, 502 mail_unavailable |
+| POST | `/digests` | Generate the weekly digest and email it to the brand admin (`createDigest`) | cookieAuth | 201 Sent; 202 A repeat of a request whose digest is still marked sending; nothing is sent again | 400 malformed_request, 400 csv_invalid, 401 unauthorized, 403 role_not_allowed, 403 cross_site_request, 500 internal, 502 mail_unavailable |
 
 Idempotency:
 
