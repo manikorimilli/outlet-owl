@@ -1,0 +1,16 @@
+[
+  {
+    "email": "ritika.rao@example.in",
+    "name": "Ritika Rao",
+    "role": "brand_admin",
+    "outlet": null,
+    "password_hash": "REPLACE with the output of make hash-password"
+  },
+  {
+    "email": "arjun.mehta@example.in",
+    "name": "Arjun Mehta",
+    "role": "outlet_manager",
+    "outlet": "Koramangala",
+    "password_hash": "REPLACE with the output of make hash-password"
+  }
+]

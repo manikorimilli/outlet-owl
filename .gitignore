@@ -13,6 +13,9 @@ web/coverage/
 .env
 .env.*
 !.env.example
+# Accounts with bcrypt hashes, loaded at start (USERS_FILE); copy
+# users.example.json and fill in hashes from make hash-password.
+/users.json
 
 # Editors and OS
 .DS_Store
