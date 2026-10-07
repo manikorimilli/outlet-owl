@@ -17,7 +17,7 @@ GO_FILES = $(shell find . -name '*.go' -not -path './web/*' -not -path './.git/*
 
 # The offline gates `make check` runs, in order. vuln needs the network and
 # test-integration needs PostgreSQL: CI runs both as jobs of their own.
-GATES := go-fmt-check go-vet go-lint go-test web-format-check web-lint web-typecheck web-test
+GATES := go-fmt-check go-vet go-lint go-test web-format-check web-lint web-api-types-check web-typecheck web-test
 
 # $(call skip,gate,tool): the tool is absent. Print it, record it, let the other
 # gates run; `check` then fails. Never a silent pass.
@@ -26,7 +26,7 @@ define skip
 endef
 
 .PHONY: help setup hooks dev web-dev hash-password build check check-file fix vuln db db-down db-reset migrate migrate-down migrate-status sqlc doctor clean \
-	go-fmt-check go-vet go-lint go-test test-integration web-format-check web-lint web-typecheck web-test web-build
+	go-fmt-check go-vet go-lint go-test test-integration web-format-check web-lint web-api-types web-api-types-check web-typecheck web-test web-build
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-18s %s\n", $$1, $$2}'
@@ -99,6 +99,21 @@ web-format-check: ## Fail if any web file is unformatted (prettier)
 web-lint: ## ESLint with zero warnings allowed
 	@[ -x $(WEB)/node_modules/.bin/eslint ] || $(call skip,web-lint,eslint (run make setup)); \
 	cd $(WEB) && $(PNPM) exec eslint . --max-warnings 0 && echo "web-lint: passed"
+
+web-api-types: ## Regenerate web/src/lib/api-types.ts from api/openapi.yaml; commit it with the spec change
+	@cd $(WEB) && $(PNPM) run --silent api-types && echo "web-api-types: src/lib/api-types.ts written from api/openapi.yaml"
+
+# Tenet 7: the UI's types are generated from the spec. Generating and
+# formatting happen in memory, so the committed file is compared, not touched.
+web-api-types-check: ## Fail if web/src/lib/api-types.ts is not what api/openapi.yaml generates
+	@[ -x $(WEB)/node_modules/.bin/openapi-typescript ] || $(call skip,web-api-types-check,openapi-typescript (run make setup)); \
+	cd $(WEB) && [ -f src/lib/api-types.ts ] || { echo "web-api-types-check: src/lib/api-types.ts is missing; run make web-api-types" >&2; exit 1; }; \
+	set -o pipefail; want=$$($(PNPM) exec openapi-typescript ../api/openapi.yaml | $(PNPM) exec prettier --stdin-filepath src/lib/api-types.ts) || \
+		{ echo "web-api-types-check: generating from api/openapi.yaml failed" >&2; exit 1; }; \
+	diff -u src/lib/api-types.ts <(printf '%s\n' "$$want") >/dev/null || { \
+		echo "web-api-types-check: src/lib/api-types.ts does not match api/openapi.yaml; run make web-api-types and commit it" >&2; \
+		diff -u src/lib/api-types.ts <(printf '%s\n' "$$want") | head -40 >&2; exit 1; }; \
+	echo "web-api-types-check: src/lib/api-types.ts matches api/openapi.yaml ($$(wc -l < src/lib/api-types.ts | tr -d ' ') lines)"
 
 web-typecheck: ## tsc --noEmit
 	@[ -x $(WEB)/node_modules/.bin/tsc ] || $(call skip,web-typecheck,tsc (run make setup)); \

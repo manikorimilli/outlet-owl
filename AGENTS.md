@@ -57,11 +57,14 @@ Breaking one gets the change rejected, whatever else it does.
   server refuses to start without the tables or with a bad users file.
 - Run: `make dev` (server on :8080), `make web-dev` (Vite on :5173, forwards /api).
 - Gate: `make check` runs go-fmt-check, go-vet, go-lint, go-test,
-  web-format-check, web-lint, web-typecheck and web-test, offline. A missing
-  tool is recorded as skipped and fails the gate.
+  web-format-check, web-lint, web-api-types-check, web-typecheck and
+  web-test, offline. A missing tool is recorded as skipped and fails the
+  gate. web-api-types-check fails when `web/src/lib/api-types.ts` is not what
+  `api/openapi.yaml` generates: run `make web-api-types` and commit both.
 - Outside the gate: `make build`, `make test-integration` (needs `make db`
   and goose; each package gets its own database), `make vuln` (needs the
-  network), `make migrate`, `make sqlc`, `make fix`, `make doctor`.
+  network), `make migrate`, `make sqlc`, `make web-api-types`, `make fix`,
+  `make doctor`.
 - Toolchain: Go 1.26.8; sqlc v1.31.1, goose v3.28.0, golangci-lint v2.13.2 and
   govulncheck v1.8.0 installed with `go install` into `$(go env GOPATH)/bin`
   (the Makefile puts it on PATH); Node 24 (`web/.nvmrc`, run `nvm use` in

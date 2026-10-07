@@ -14,7 +14,8 @@
     "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "api-types": "openapi-typescript ../api/openapi.yaml -o src/lib/api-types.ts && prettier --log-level warn --write src/lib/api-types.ts"
   },
   "dependencies": {
     "react": "19.3.0",
@@ -34,6 +35,7 @@
     "eslint-plugin-react-refresh": "0.5.7",
     "globals": "17.12.0",
     "jsdom": "27.4.0",
+    "openapi-typescript": "7.13.0",
     "prettier": "3.9.8",
     "typescript": "5.9.3",
     "typescript-eslint": "8.70.1",
