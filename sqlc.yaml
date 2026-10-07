@@ -1,6 +1,5 @@
 # sqlc compiles db/queries against db/migrations into typed Go in
-# internal/store (ADR-0003). It has nothing to compile until the first
-# migration lands (00001_create_outlets_and_users, data model section 8).
+# internal/store (ADR-0003); make sqlc regenerates it.
 version: "2"
 sql:
   - engine: postgresql
@@ -12,3 +11,14 @@ sql:
         out: internal/store
         sql_package: pgx/v5
         emit_json_tags: true
+        # Nullable columns become Go pointers (*int64, *string), and every
+        # timestamptz a time.Time, so callers never handle pgtype wrappers.
+        emit_pointers_for_null_types: true
+        overrides:
+          - db_type: timestamptz
+            go_type: time.Time
+          - db_type: timestamptz
+            nullable: true
+            go_type:
+              type: time.Time
+              pointer: true

@@ -91,6 +91,9 @@ func TestParseUsersFile_ValidFile(t *testing.T) {
 	if a.Email != "Ritika.Rao@Example.in" || a.Name != "Ritika Rao" || a.Role != RoleBrandAdmin || a.Outlet != nil {
 		t.Fatalf("admin entry = %+v, want trimmed values and no outlet", a)
 	}
+	if got.Entries[0].Entry != 1 || got.Entries[2].Entry != 3 {
+		t.Fatalf("entry numbers = %d, %d; want 1 and 3", got.Entries[0].Entry, got.Entries[2].Entry)
+	}
 	if m := got.Entries[1]; m.Outlet == nil || *m.Outlet != "Koramangala" {
 		t.Fatalf("manager outlet = %v, want Koramangala trimmed", m.Outlet)
 	}

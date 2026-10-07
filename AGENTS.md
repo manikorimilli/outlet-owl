@@ -49,6 +49,12 @@ Breaking one gets the change rejected, whatever else it does.
   MailHog in Docker). An `.env` copied before phase 1 lacks `JWT_SECRET`,
   `USERS_FILE`, `BRAND_NAME` and `BRAND_TIMEZONE`: copy them from
   `.env.example`.
+- Accounts: `cp users.example.json users.json` (ignored by git), then replace
+  each `password_hash` with the output of `make hash-password`. Start with the
+  admin entry only: a manager entry naming an outlet that does not exist yet
+  is skipped with a warning. Add the outlets as the admin, then the manager
+  entries, and restart. `make migrate` before the first `make dev`; the
+  server refuses to start without the tables or with a bad users file.
 - Run: `make dev` (server on :8080), `make web-dev` (Vite on :5173, forwards /api).
 - Gate: `make check` runs go-fmt-check, go-vet, go-lint, go-test,
   web-format-check, web-lint, web-typecheck and web-test, offline. A missing

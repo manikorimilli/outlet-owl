@@ -37,7 +37,9 @@ const maxUsersFileBytes = 1 << 20
 var emailShape = regexp.MustCompile(`^[^@\s]+@[^@\s]+$`)
 
 // UsersFileEntry is one account in the users file, trimmed and checked.
+// Entry is its 1-based position in the file, for log lines; JSON never sets it.
 type UsersFileEntry struct {
+	Entry        int     `json:"-"`
 	Email        string  `json:"email"`
 	Name         string  `json:"name"`
 	Role         Role    `json:"role"`
@@ -119,6 +121,7 @@ func ParseUsers(r io.Reader) (UsersFile, error) {
 		if err != nil {
 			return out, err
 		}
+		e.Entry = n
 		key := strings.ToLower(e.Email)
 		if key != "" {
 			if first, dup := seen[key]; dup {
