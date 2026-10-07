@@ -65,4 +65,25 @@ func TestRequestLogRecordsStatusWithoutBody(t *testing.T) {
 	if strings.Contains(buf.String(), "secret review text") {
 		t.Fatalf("log contains the response body: %s", buf.String())
 	}
+	if strings.Contains(buf.String(), "user_id") {
+		t.Fatalf("a request with no signed-in user logs a user_id: %s", buf.String())
+	}
+}
+
+func TestRequestLog_IncludesUserID(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, nil))
+	h := RequestLog(logger)(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		SetUserID(r.Context(), 42)
+	}))
+
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", http.NoBody))
+
+	if !strings.Contains(buf.String(), `"user_id":42`) {
+		t.Fatalf("log lacks the user id: %s", buf.String())
+	}
+}
+
+func TestSetUserID_OutsideRequestLogDoesNothing(t *testing.T) {
+	SetUserID(context.Background(), 42) // must not panic
 }

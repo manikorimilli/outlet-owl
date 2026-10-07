@@ -23,7 +23,7 @@ func get(t *testing.T, h http.Handler, path string) *httptest.ResponseRecorder {
 }
 
 func handler(db Pinger) http.Handler {
-	return New(slog.New(slog.NewTextHandler(io.Discard, nil)), db)
+	return New(Deps{Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), DB: db})
 }
 
 type envelope struct {

@@ -17,12 +17,19 @@ type Pinger interface {
 	Ping(ctx context.Context) error
 }
 
+// Deps is what the routes need. main builds it; tests fill it with fakes.
+type Deps struct {
+	Logger *slog.Logger
+	DB     Pinger
+}
+
 // New builds the HTTP handler. The chain, outermost first: request id, panic
 // recovery, request log, the cross-origin write check, then the mux. The
 // check sits inside the request log so a refusal is logged with its 403.
-func New(logger *slog.Logger, db Pinger) http.Handler {
+func New(d Deps) http.Handler {
+	logger := d.Logger
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /api/v1/health", health(logger, db))
+	mux.HandleFunc("GET /api/v1/health", health(logger, d.DB))
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, r, http.StatusNotFound, "not_found", "No such route.")
 	})
@@ -58,9 +65,5 @@ func WriteJSON(w http.ResponseWriter, status int, v any) {
 // WriteError writes the error envelope from api/openapi.yaml: a stable code,
 // a message for people and the request id. Never leak internal detail here.
 func WriteError(w http.ResponseWriter, r *http.Request, status int, code, message string) {
-	WriteJSON(w, status, map[string]any{"error": map[string]string{
-		"code":       code,
-		"message":    message,
-		"request_id": middleware.RequestIDFrom(r.Context()),
-	}})
+	WriteErrorDetails(w, r, status, code, message, nil)
 }
