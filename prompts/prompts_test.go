@@ -56,6 +56,7 @@ func TestParse_Refuses(t *testing.T) {
 		{"CurrentNamingAMissingVersion", fstest.MapFS{"a/v1.md": file(v1), "a/current": file("2")}, "v2, which does not exist"},
 		{"AGapInVersionNumbers", fstest.MapFS{"a/v1.md": file(v1), "a/v3.md": file(v2), "a/current": file("1")}, "no v2.md"},
 		{"MaxTokensAbove1000", fstest.MapFS{"a/v1.md": file("---\nmax_tokens: 4000\n---\nx"), "a/current": file("1")}, "max_tokens must be from 1 to 1000"},
+		{"NaNTemperature", fstest.MapFS{"a/v1.md": file("---\nmax_tokens: 10\ntemperature: NaN\n---\nx"), "a/current": file("1")}, "temperature must be a number from 0 to 2"},
 		{"MissingMaxTokens", fstest.MapFS{"a/v1.md": file("---\ntemperature: 0\n---\nx"), "a/current": file("1")}, "must set max_tokens"},
 		{"AnUnknownHeaderKey", fstest.MapFS{"a/v1.md": file("---\nmax_tokens: 10\nmodel: x\n---\nx"), "a/current": file("1")}, `unknown header key "model"`},
 		{"BlankText", fstest.MapFS{"a/v1.md": file("---\nmax_tokens: 10\n---\n  \n"), "a/current": file("1")}, "blank"},

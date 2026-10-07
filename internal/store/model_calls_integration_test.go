@@ -123,3 +123,19 @@ func TestInsertReconciliation_OnlyWhenTheProviderIsHigher(t *testing.T) {
 		t.Fatalf("total = %s, want 1.40000000", total)
 	}
 }
+
+// GET /key reports usage as a JSON float with more than 8 decimals; a
+// difference below the column's scale must not insert a zero row on every
+// live or record start.
+func TestInsertReconciliation_NeverInsertsAZeroRow(t *testing.T) {
+	s, _, ctx := newBudgetStore(t)
+	spend(ctx, t, s, "1.23456789")
+
+	if got, added, err := s.InsertReconciliation(ctx, "1.234567891"); err != nil || added {
+		t.Fatalf("a sub-scale difference added %q, %v, %v; want nothing", got, added, err)
+	}
+	var rows int
+	if err := s.Pool.QueryRow(ctx, "SELECT count(*) FROM budget.model_calls WHERE purpose = 'reconciliation'").Scan(&rows); err != nil || rows != 0 {
+		t.Fatalf("reconciliation rows = %d, %v; want 0", rows, err)
+	}
+}

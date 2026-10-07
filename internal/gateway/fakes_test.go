@@ -19,15 +19,25 @@ type fakeRow struct {
 }
 
 // fakeStore applies the store's rules in memory: settle and fail change only
-// a reserved row; refuse makes the next reserve fail as over the limit.
+// a reserved row; refuse makes the next reserve fail as over the limit. Like
+// pgx, every write fails on a cancelled or expired context, so a test proves
+// the gateway writes on a context its caller cannot cancel.
 type fakeStore struct {
 	mu        sync.Mutex
 	rows      []fakeRow
 	refuseAt  int // the reserve with this 1-based number and later are refused; 0 never
 	providers []string
+	// reserveErr, when set, is what every reserve returns (a database fault).
+	reserveErr error
 }
 
-func (f *fakeStore) ReserveModelCall(_ context.Context, purpose, _ string, pv int, reserved, _ string) (int64, error) {
+func (f *fakeStore) ReserveModelCall(ctx context.Context, purpose, _ string, pv int, reserved, _ string) (int64, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+	if f.reserveErr != nil {
+		return 0, f.reserveErr
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.refuseAt > 0 && len(f.rows)+1 >= f.refuseAt {
@@ -37,7 +47,10 @@ func (f *fakeStore) ReserveModelCall(_ context.Context, purpose, _ string, pv in
 	return int64(len(f.rows)), nil
 }
 
-func (f *fakeStore) SettleModelCall(_ context.Context, id int64, in, out int, cost string) (bool, error) {
+func (f *fakeStore) SettleModelCall(ctx context.Context, id int64, in, out int, cost string) (bool, error) {
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	r := &f.rows[id-1]
@@ -48,7 +61,10 @@ func (f *fakeStore) SettleModelCall(_ context.Context, id int64, in, out int, co
 	return true, nil
 }
 
-func (f *fakeStore) FailModelCall(_ context.Context, id int64) (bool, error) {
+func (f *fakeStore) FailModelCall(ctx context.Context, id int64) (bool, error) {
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	r := &f.rows[id-1]

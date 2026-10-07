@@ -176,3 +176,39 @@ func TestNew_LiveNeedsAKey(t *testing.T) {
 		t.Fatal("live mode without a key must be refused")
 	}
 }
+
+// The cost row of a paid call is written even when the caller has already
+// given up: settle and fail must not use the caller's context (LLD 4.1).
+func TestSettleAndFail_IgnoreTheCallersCancellation(t *testing.T) {
+	store := &fakeStore{}
+	g, _ := liveGateway(t, Live, newOpenRouter(t, answer{status: 200, body: okBody}), store)
+	for i := 0; i < 2; i++ {
+		if _, err := store.ReserveModelCall(context.Background(), "drafting", Model, 1, "0.01", LimitUSD); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	g.settle(cancelled, 1, 10, 2, "0.0001")
+	g.fail(cancelled, 2)
+
+	if got := store.outcomes(); !reflect.DeepEqual(got, []string{"settled", "failed"}) {
+		t.Fatalf("rows = %v after a cancelled caller, want settled and failed", got)
+	}
+}
+
+func TestComplete_DatabaseFaultIsLoggedAsAnErrorNotARefusal(t *testing.T) {
+	fault := errors.New("connection refused")
+	o := newOpenRouter(t, answer{status: 200, body: okBody})
+	g, logs := liveGateway(t, Live, o, &fakeStore{reserveErr: fault})
+
+	_, err := g.Complete(context.Background(), request())
+
+	if !errors.Is(err, fault) || o.count() != 0 {
+		t.Fatalf("err = %v after %d requests, want the fault and nothing sent", err, o.count())
+	}
+	if out := logs.String(); !strings.Contains(out, `"outcome":"error"`) || strings.Contains(out, `"outcome":"refused"`) {
+		t.Fatalf("log = %s, want outcome error, not refused", out)
+	}
+}

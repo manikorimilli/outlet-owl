@@ -35,7 +35,9 @@ FROM budget.model_calls;
 INSERT INTO budget.model_calls (purpose, reserved_cost_usd, settled_cost_usd, input_tokens, output_tokens, outcome)
 SELECT 'reconciliation', d.diff, d.diff, 0, 0, 'settled'
 FROM (
-    SELECT CAST(sqlc.arg(provider_usage_usd)::text AS numeric) - coalesce(sum(coalesce(settled_cost_usd, reserved_cost_usd)), 0) AS diff
+    -- Rounded to the column's scale first, so a provider figure with more
+    -- than 8 decimals never inserts a row worth 0.00000000.
+    SELECT round(CAST(sqlc.arg(provider_usage_usd)::text AS numeric) - coalesce(sum(coalesce(settled_cost_usd, reserved_cost_usd)), 0), 8) AS diff
     FROM budget.model_calls
 ) d
 WHERE d.diff > 0

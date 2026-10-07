@@ -115,7 +115,12 @@ func (g *Gateway) live(ctx context.Context, r Request, body []byte, maxTokens in
 	for attempt := 0; ; attempt++ {
 		id, err := g.cfg.Store.ReserveModelCall(ctx, string(r.Purpose), Model, r.Prompt.Number, reserved, LimitUSD)
 		if err != nil {
-			g.logCall(r, attempt, "refused", 0, reserved, "", Response{}, 0)
+			// "refused" is the USD 8 stop only; a database fault is an error.
+			outcome := "refused"
+			if !errors.Is(err, ErrBudgetExhausted) {
+				outcome = "error"
+			}
+			g.logCall(r, attempt, outcome, 0, reserved, "", Response{}, 0)
 			return Response{}, nil, err
 		}
 		start := time.Now()

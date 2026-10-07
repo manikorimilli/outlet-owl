@@ -151,7 +151,8 @@ func parseVersion(name string, n int, data string) (Version, error) {
 			v.MaxTokens = mt
 		case "temperature":
 			t, err := strconv.ParseFloat(value, 64)
-			if err != nil || t < 0 || t > 2 {
+			// Written this way so NaN, which fails every comparison, is refused.
+			if err != nil || !(t >= 0 && t <= 2) {
 				return Version{}, errors.New("temperature must be a number from 0 to 2")
 			}
 			v.Temperature = &t
