@@ -49,7 +49,7 @@ Breaking one gets the change rejected, whatever else it does.
 - Gate: `make check` runs go-fmt-check, go-vet, go-lint, go-test,
   web-format-check, web-lint, web-typecheck and web-test, offline. A missing
   tool is recorded as skipped and fails the gate.
-- Outside the gate: `make build`, `make test-integration` (needs `make db`),
+- Outside the gate: `make build`, `make test-integration` (needs `make db` and goose; each package gets its own database),
   `make vuln` (needs the network), `make migrate`, `make sqlc`, `make fix`,
   `make doctor`.
 - Toolchain: Go 1.26.8; sqlc v1.31.1, goose v3.28.0, golangci-lint v2.13.2 and

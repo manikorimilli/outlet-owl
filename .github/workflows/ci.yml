@@ -24,6 +24,7 @@ permissions:
 env:
   GOLANGCI_LINT_VERSION: v2.13.2
   GOVULNCHECK_VERSION: v1.8.0
+  GOOSE_VERSION: v3.28.0
 
 jobs:
   # Pull requests only: the branch name and every new commit subject follow the
@@ -84,7 +85,8 @@ jobs:
         run: corepack enable && cd web && pnpm install --frozen-lockfile
       - run: make build
 
-  # Needs PostgreSQL, so it is a job here and not part of make check.
+  # Needs PostgreSQL, so it is a job here and not part of make check. Each
+  # test package creates, migrates (goose) and drops its own database.
   integration:
     needs: check
     runs-on: ubuntu-latest
@@ -102,6 +104,8 @@ jobs:
         run: echo "0.0.0.0 openrouter.ai" | sudo tee -a /etc/hosts
       - uses: actions/setup-go@v5
         with: { go-version-file: go.mod }
+      - name: tools
+        run: go install github.com/pressly/goose/v3/cmd/goose@${GOOSE_VERSION}
       - run: make test-integration
 
   # Needs the network (the Go vulnerability database and the npm registry).

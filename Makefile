@@ -78,9 +78,11 @@ go-test: ## Go unit tests with the race detector
 	[ "$$n" -gt 0 ] || { echo "go-test: 0 packages, nothing checked" >&2; exit 1; }; \
 	set -o pipefail; go test -race -count=1 -cover ./... 2>&1 | tail -40 && echo "go-test: $$n packages checked"
 
-test-integration: ## Store tests against PostgreSQL (needs make db; a CI job, not part of check)
+test-integration: ## Integration tests in every package, each on its own database (needs make db and goose; a CI job, not part of check)
 	@[ -n "$(DATABASE_URL)" ] || { echo "test-integration: DATABASE_URL is empty, nothing checked" >&2; exit 1; }; \
-	set -o pipefail; DATABASE_URL="$(DATABASE_URL)" go test -race -count=1 -tags=integration ./internal/store/... 2>&1 | tail -40 && echo "test-integration: store checked against $(DATABASE_URL)"
+	command -v goose >/dev/null || { echo "test-integration: goose not installed (AGENTS.md, Toolchain), nothing checked" >&2; exit 1; }; \
+	n=$$(go list -tags=integration ./... | wc -l | tr -d ' '); \
+	set -o pipefail; DATABASE_URL="$(DATABASE_URL)" go test -race -count=1 -tags=integration ./... 2>&1 | tail -40 && echo "test-integration: $$n packages checked; per-run databases created through $(DATABASE_URL)"
 
 # ---- Web gates --------------------------------------------------------------
 
