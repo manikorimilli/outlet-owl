@@ -57,10 +57,20 @@ func run() error {
 	if err := loadUsers(ctx, logger, st, cfg.UsersFile); err != nil {
 		return err
 	}
+	tokens, err := auth.NewTokens(cfg.JWTSecret, nil)
+	if err != nil {
+		return fmt.Errorf("session tokens: %w", err)
+	}
 
+	handler := httpapi.New(httpapi.Deps{
+		Logger: logger,
+		DB:     st,
+		Auth:   auth.NewService(st, tokens),
+		Brand:  httpapi.Brand{Name: cfg.BrandName, Timezone: cfg.BrandTimezone.String()},
+	})
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           httpapi.New(httpapi.Deps{Logger: logger, DB: st}),
+		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      60 * time.Second,

@@ -21,6 +21,8 @@ type Pinger interface {
 type Deps struct {
 	Logger *slog.Logger
 	DB     Pinger
+	Auth   Authenticator
+	Brand  Brand
 }
 
 // New builds the HTTP handler. The chain, outermost first: request id, panic
@@ -30,6 +32,9 @@ func New(d Deps) http.Handler {
 	logger := d.Logger
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/health", health(logger, d.DB))
+	mux.HandleFunc("POST /api/v1/auth/login", login(d))
+	mux.HandleFunc("POST /api/v1/auth/logout", logout())
+	mux.HandleFunc("GET /api/v1/me", me(d))
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, r, http.StatusNotFound, "not_found", "No such route.")
 	})
