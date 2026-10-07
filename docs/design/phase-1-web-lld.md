@@ -3,6 +3,7 @@
 - Task: none (no task ids yet). HLD: [review-intelligence-hld.md](review-intelligence-hld.md) section 12 phase 1. ADRs: [0002](../adr/0002-use-react-and-vite-for-the-ui.md), [0005](../adr/0005-use-rest-with-openapi-for-the-api.md), [0007](../adr/0007-use-jwt-cookies-for-sign-in.md)
 - Author: unattributed (no `.bearing/company.json`), 2026-10-07, status Draft
 - Version: v2 (2026-10-07): the critic's web findings fixed, and the cross-origin write check (spec 1.1.1) kept working from the UI
+- Version: v2.1 (2026-10-07): the Vite proxy claim corrected after a live run of server work item 5 (sections 2 and 8); `web/vite.config.ts` now sets `changeOrigin: false`
 
 Changes from v1 (commit 13182d1):
 
@@ -11,7 +12,7 @@ Changes from v1 (commit 13182d1):
 | 2, 9 | The session context and `useSession` move to `app/session-context.ts`, so `session.tsx` exports components only and web-lint stays green |
 | 4.1, 6, 8 | The first visit with no cookie shows no "session ended" notice |
 | 4.4, 5, 8 | After an outlet is added the list is refetched and an older load is discarded, so the new row never vanishes; the order comes from the server |
-| 2, 5, 8 | The Vite proxy keeps the browser's `Host`, `Origin` and `Sec-Fetch-Site` (no `changeOrigin`), and a test pins it; a 403 `cross_site_request` shows the server's message |
+| 2, 5, 8 | The Vite proxy keeps the browser's `Host`, `Origin` and `Sec-Fetch-Site` (`changeOrigin: false` in the object form; the string shorthand turns it on), and a test pins it; a 403 `cross_site_request` shows the server's message |
 | 5 | Data loading never calls `setState` synchronously inside an effect (eslint-plugin-react-hooks 7 rule) |
 | 9 | W2 split into the router and session (W2) and the shell (W3), so no item passes 400 lines; sign-in and outlets become W4 and W5 |
 - Companion: [phase-1-server-lld.md](phase-1-server-lld.md) (the endpoints these screens call)
@@ -61,7 +62,7 @@ Follows the `bearing-apps:react` layout without the parts this repository has no
 | `web/src/styles/app.css` (new) | the classes S-01, S-06 and the shell use, ported from `docs/design/screens/app/screens.css` | 220 |
 | `web/package.json`, `pnpm-lock.yaml` | `react-router` (dependency), `openapi-typescript` (dev dependency), script `api-types` | +5 |
 | `Makefile` | `web-api-types` (writes the file) and `web-api-types-check` (a gate, added to `GATES`) | +12 |
-| `web/vite.config.ts` | unchanged: `/api` is forwarded to :8080 with the string shorthand, which leaves `changeOrigin` off, so the browser's `Host`, `Origin` and `Sec-Fetch-Site` reach the server's cross-origin check unchanged (server LLD section 5) | 0 |
+| `web/vite.config.ts` | changed in server work item 5: `/api` is forwarded to :8080 with `{ target, changeOrigin: false }`. Vite's string shorthand sets `changeOrigin: true`, which rewrites `Host` to `localhost:8080` and makes the server refuse writes from browsers that send no `Sec-Fetch-Site` (found in a live run, 2026-10-07; server LLD section 5) | 3 |
 | `web/src/app/vite-proxy.test.ts` (new) | pins that proxy setting | 20 |
 
 No hand-written file is expected to pass 400 lines. Tests sit beside the code as `*.test.tsx`.
@@ -265,7 +266,7 @@ API client (`lib/api.test.ts`):
 - `apiFetch parses the error envelope into ApiError`
 - `apiFetch reports a failed fetch as code network`
 - `apiFetch calls the unauthorized handler on 401 unauthorized`
-- `the Vite proxy forwards /api without changeOrigin` (`app/vite-proxy.test.ts`)
+- `the Vite proxy forwards /api with changeOrigin false` (`app/vite-proxy.test.ts`): the object form, `changeOrigin` exactly `false`
 - `apiFetch does not call the unauthorized handler on 401 invalid_credentials`
 
 Session and routing (`app/session.test.tsx`, `app/routes.test.tsx`):

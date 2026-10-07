@@ -1,5 +1,5 @@
 // Package middleware holds the HTTP middleware the server runs: request id,
-// panic recovery and the request log. Each is a plain
+// panic recovery, the request log and the cross-origin write check. Each is a plain
 // func(http.Handler) http.Handler so the chain in httpapi reads top to bottom.
 package middleware
 

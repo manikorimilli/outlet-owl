@@ -18,7 +18,8 @@ type Pinger interface {
 }
 
 // New builds the HTTP handler. The chain, outermost first: request id, panic
-// recovery, request log, then the mux.
+// recovery, request log, the cross-origin write check, then the mux. The
+// check sits inside the request log so a refusal is logged with its 403.
 func New(logger *slog.Logger, db Pinger) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/health", health(logger, db))
@@ -27,6 +28,7 @@ func New(logger *slog.Logger, db Pinger) http.Handler {
 	})
 
 	var handler http.Handler = mux
+	handler = middleware.CrossOrigin(logger, WriteError)(handler)
 	handler = middleware.RequestLog(logger)(handler)
 	handler = middleware.Recover(logger, WriteError)(handler)
 	return middleware.RequestID(handler)

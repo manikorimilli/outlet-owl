@@ -78,3 +78,47 @@ func TestUnknownAPIRouteUsesTheErrorEnvelope(t *testing.T) {
 		t.Fatalf("body: got %+v err %v", body, err)
 	}
 }
+
+func post(t *testing.T, h http.Handler, path, fetchSite, origin string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://localhost:8080"+path, http.NoBody)
+	if fetchSite != "" {
+		req.Header.Set("Sec-Fetch-Site", fetchSite)
+	}
+	if origin != "" {
+		req.Header.Set("Origin", origin)
+	}
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	return rec
+}
+
+// TestCrossSiteWriteGets403Envelope proves the check is in the chain, ahead of
+// the routes, and answers in the error envelope with the request id.
+func TestCrossSiteWriteGets403Envelope(t *testing.T) {
+	rec := post(t, handler(fakeDB{}), "/api/v1/outlets", "cross-site", "https://evil.example")
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status: got %d want 403", rec.Code)
+	}
+	var body envelope
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if body.Error.Code != "cross_site_request" || body.Error.Message == "" {
+		t.Fatalf("body: got %+v", body)
+	}
+	if body.Error.RequestID == "" || body.Error.RequestID != rec.Header().Get("X-Request-Id") {
+		t.Fatalf("request_id %q does not match header %q", body.Error.RequestID, rec.Header().Get("X-Request-Id"))
+	}
+}
+
+// TestSameOriginWriteReachesTheRoutes: the same request from the UI's own
+// origin passes the check and gets the router's answer (no route yet: 404).
+func TestSameOriginWriteReachesTheRoutes(t *testing.T) {
+	rec := post(t, handler(fakeDB{}), "/api/v1/outlets", "same-origin", "http://localhost:8080")
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status: got %d want 404 from the router", rec.Code)
+	}
+}
