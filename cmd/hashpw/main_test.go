@@ -5,6 +5,8 @@ import (
 	"errors"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -27,8 +29,48 @@ func TestHashpw_PrintsHashThatChecksAgainstInput(t *testing.T) {
 	}
 }
 
-// The make target is how people run hashpw; its read once trimmed the spaces
-// a password starts or ends with, so the hash matched a different password.
+var bcryptHash = regexp.MustCompile(`\$2[aby]\$12\$[./A-Za-z0-9]{53}`)
+
+// The make target is how people run hashpw, typing on a terminal; its read
+// once trimmed the spaces a password starts or ends with on a terminal only,
+// so the hash matched a different password. script(1) gives make a
+// pseudo-terminal, so this reaches the same read a person does.
+func TestMakeHashPassword_KeepsSpacesWhenTyped(t *testing.T) {
+	const password = "  correct horse \t"
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	makeCmd := "make --no-print-directory -s -C '" + root + "' hash-password"
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "linux":
+		cmd = exec.Command("script", "-qec", makeCmd, "/dev/null")
+	case "darwin", "freebsd":
+		cmd = exec.Command("script", "-q", "/dev/null", "sh", "-c", makeCmd)
+	default:
+		t.Fatalf("no script(1) form known for %s", runtime.GOOS)
+	}
+	cmd.Stdin = strings.NewReader(password + "\r") // Enter on a terminal
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("make hash-password on a terminal: %v\n%s", err, out)
+	}
+
+	hash := bcryptHash.FindString(string(out))
+	if hash == "" {
+		t.Fatalf("no bcrypt hash in the terminal output:\n%q", out)
+	}
+	if !auth.CheckPassword(hash, password) {
+		t.Fatalf("the hash typed on a terminal does not check against the password with its spaces")
+	}
+	if auth.CheckPassword(hash, strings.TrimSpace(password)) {
+		t.Fatal("the hash typed on a terminal checks against the trimmed password")
+	}
+}
+
+// Piped input (a script, CI) reaches the same read.
 func TestMakeHashPassword_KeepsLeadingAndTrailingSpaces(t *testing.T) {
 	const password = "  correct horse \t"
 	cmd := exec.Command("make", "--no-print-directory", "-s", "-C", filepath.Join("..", ".."), "hash-password")
