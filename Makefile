@@ -173,16 +173,21 @@ db-down: ## Stop the containers (data kept)
 db-reset: ## Drop the local database volume and start again (destructive)
 	docker compose down -v && docker compose up -d --wait
 
-migrate: ## goose up (db/migrations)
+# The budget set (db/migrations/budget) has its own version table and no Down:
+# migrate applies it after the domain set; migrate-down never touches it, so
+# no back-out drops the running total (HLD section 4).
+BUDGET_GOOSE = goose -dir db/migrations/budget -table goose_budget_version postgres "$(DATABASE_URL)"
+
+migrate: ## goose up (db/migrations, then the budget set)
 	@n=$$(ls db/migrations/*.sql 2>/dev/null | wc -l | tr -d ' '); \
 	[ "$$n" -gt 0 ] || { echo "migrate: 0 migrations in db/migrations, nothing applied" >&2; exit 1; }; \
-	goose -dir db/migrations postgres "$(DATABASE_URL)" up
+	goose -dir db/migrations postgres "$(DATABASE_URL)" up && $(BUDGET_GOOSE) up
 
-migrate-down: ## goose down one
+migrate-down: ## goose down one (domain set only; the budget set is never rolled back)
 	goose -dir db/migrations postgres "$(DATABASE_URL)" down
 
-migrate-status: ## goose status
-	goose -dir db/migrations postgres "$(DATABASE_URL)" status
+migrate-status: ## goose status (both sets)
+	goose -dir db/migrations postgres "$(DATABASE_URL)" status && $(BUDGET_GOOSE) status
 
 sqlc: ## Regenerate typed queries into internal/store
 	@n=$$(ls db/migrations/*.sql 2>/dev/null | wc -l | tr -d ' '); \

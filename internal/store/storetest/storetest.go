@@ -27,7 +27,7 @@ type DB struct {
 }
 
 // New creates a database named outlet_owl_test_<pid>_<random>, applies every
-// migration in db/migrations with the goose binary, and drops the database
+// migration in db/migrations and the budget set with the goose binary, and drops the database
 // when the test ends. DATABASE_URL names the server and a database to connect
 // to for CREATE DATABASE; nothing is written there.
 func New(t testing.TB) *DB {
@@ -60,6 +60,7 @@ func New(t testing.TB) *DB {
 
 	db := &DB{Name: name, URL: testURL}
 	db.Goose(t, "up")
+	db.gooseBudget(t, "up")
 
 	pool, err := pgxpool.New(ctx, testURL)
 	if err != nil {
@@ -89,6 +90,18 @@ func (d *DB) Goose(t testing.TB, args ...string) {
 	out, err := exec.Command("goose", cmdArgs...).CombinedOutput()
 	if err != nil {
 		t.Fatalf("storetest: goose %v on %s: %v\n%s", args, d.Name, err, out)
+	}
+}
+
+// gooseBudget runs goose on the budget set, which has its own version table
+// and no Down (HLD section 4); tests only ever apply it.
+func (d *DB) gooseBudget(t testing.TB, args ...string) {
+	t.Helper()
+	dir := filepath.Join(migrationsDir(t), "budget")
+	cmdArgs := append([]string{"-dir", dir, "-table", "goose_budget_version", "postgres", d.URL}, args...)
+	out, err := exec.Command("goose", cmdArgs...).CombinedOutput()
+	if err != nil {
+		t.Fatalf("storetest: goose budget %v on %s: %v\n%s", args, d.Name, err, out)
 	}
 }
 
