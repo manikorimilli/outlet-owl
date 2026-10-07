@@ -8,7 +8,97 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type BudgetModelCallOutcome string
+
+const (
+	BudgetModelCallOutcomeReserved BudgetModelCallOutcome = "reserved"
+	BudgetModelCallOutcomeSettled  BudgetModelCallOutcome = "settled"
+	BudgetModelCallOutcomeFailed   BudgetModelCallOutcome = "failed"
+)
+
+func (e *BudgetModelCallOutcome) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = BudgetModelCallOutcome(s)
+	case string:
+		*e = BudgetModelCallOutcome(s)
+	default:
+		return fmt.Errorf("unsupported scan type for BudgetModelCallOutcome: %T", src)
+	}
+	return nil
+}
+
+type NullBudgetModelCallOutcome struct {
+	BudgetModelCallOutcome BudgetModelCallOutcome `json:"budget_model_call_outcome"`
+	Valid                  bool                   `json:"valid"` // Valid is true if BudgetModelCallOutcome is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullBudgetModelCallOutcome) Scan(value interface{}) error {
+	if value == nil {
+		ns.BudgetModelCallOutcome, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.BudgetModelCallOutcome.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullBudgetModelCallOutcome) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.BudgetModelCallOutcome), nil
+}
+
+type BudgetModelCallPurpose string
+
+const (
+	BudgetModelCallPurposeTagging        BudgetModelCallPurpose = "tagging"
+	BudgetModelCallPurposeDrafting       BudgetModelCallPurpose = "drafting"
+	BudgetModelCallPurposeEvaluation     BudgetModelCallPurpose = "evaluation"
+	BudgetModelCallPurposeToneCheck      BudgetModelCallPurpose = "tone_check"
+	BudgetModelCallPurposeReconciliation BudgetModelCallPurpose = "reconciliation"
+)
+
+func (e *BudgetModelCallPurpose) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = BudgetModelCallPurpose(s)
+	case string:
+		*e = BudgetModelCallPurpose(s)
+	default:
+		return fmt.Errorf("unsupported scan type for BudgetModelCallPurpose: %T", src)
+	}
+	return nil
+}
+
+type NullBudgetModelCallPurpose struct {
+	BudgetModelCallPurpose BudgetModelCallPurpose `json:"budget_model_call_purpose"`
+	Valid                  bool                   `json:"valid"` // Valid is true if BudgetModelCallPurpose is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullBudgetModelCallPurpose) Scan(value interface{}) error {
+	if value == nil {
+		ns.BudgetModelCallPurpose, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.BudgetModelCallPurpose.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullBudgetModelCallPurpose) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.BudgetModelCallPurpose), nil
+}
 
 type UserRole string
 
@@ -50,6 +140,32 @@ func (ns NullUserRole) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.UserRole), nil
+}
+
+// Every live model call and its cost; the running total. Never truncated or dropped. Serves US-02-001, US-02-002, US-02-004, US-02-005.
+type BudgetModelCall struct {
+	// Surrogate key; the gateway settles the row it reserved by this id.
+	ID int64 `json:"id"`
+	// tagging, drafting, evaluation, tone_check, or reconciliation for a start-up adjustment.
+	Purpose BudgetModelCallPurpose `json:"purpose"`
+	// Model identifier sent to OpenRouter; null only on a reconciliation row.
+	Model *string `json:"model"`
+	// Number of the prompt version sent; the purpose says which prompt.
+	PromptVersion *int32 `json:"prompt_version"`
+	// Input tokens OpenRouter reported; null until the call settles.
+	InputTokens *int32 `json:"input_tokens"`
+	// Output tokens OpenRouter reported; null until the call settles.
+	OutputTokens *int32 `json:"output_tokens"`
+	// Worst-case price reserved before the call (input plus max_tokens); counts until settled.
+	ReservedCostUsd pgtype.Numeric `json:"reserved_cost_usd"`
+	// usage.cost from the response, in USD; replaces the reserved price in the total.
+	SettledCostUsd pgtype.Numeric `json:"settled_cost_usd"`
+	// reserved while in flight, settled with a response, failed without one (stays at the reserved price).
+	Outcome BudgetModelCallOutcome `json:"outcome"`
+	// When the call was reserved, which is the time the log shows.
+	CreatedAt time.Time `json:"created_at"`
+	// When the call settled or failed.
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // One location of the brand. Serves US-01-001, US-01-002, US-01-005, US-01-006, US-01-007, US-00-001.
