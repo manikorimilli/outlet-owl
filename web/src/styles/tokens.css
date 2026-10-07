@@ -1,0 +1,164 @@
+/* Copied from docs/design/tokens.css (the source; change it there, then copy
+   it here). Formatted by Prettier. */
+
+/* OutletOwl design tokens: PROPOSED (screen-design round 2, 2026-10-06).
+   The only file in the design bundle that names a colour. Direction: Night launch
+   (product owner, round 2): a deep navy gradient for sign-in and navigation, a light
+   blue-white canvas with white cards, Plus Jakarta Sans, electric blue pill buttons with a
+   soft blue glow. Reference for qualities only: webinar.gg; no logo, text or image copied.
+   Light only: the dark theme was dropped in round 2 (product owner, 2026-10-06).
+   Status keeps its own colours (product owner, round 2): urgent and errors red, notices
+   amber, improvement and done green, always with the word, never colour alone.
+   Measured with contrast.py: every text pair 4.5:1 or more, field edges and focus 3:1 or
+   more. Gradient words on light pages are 24 px or larger, so their lightest end needs 3:1. */
+
+:root {
+  color-scheme: light;
+  /* Type: Plus Jakarta Sans everywhere. It has no Devanagari, so Noto Sans Devanagari
+     follows it in every stack and carries Hindi text. Figures use tabular numerals of the
+     same face. In the app these are bundled files, never a CDN (HLD section 3); the
+     mockups load them from Google Fonts. */
+  --font-display: "Plus Jakarta Sans", "Noto Sans Devanagari", system-ui, sans-serif;
+  --font-body: "Plus Jakarta Sans", "Noto Sans Devanagari", system-ui, sans-serif;
+  --font-mono:
+    "Plus Jakarta Sans", "Noto Sans Devanagari", system-ui, sans-serif; /* numbers: same face, tabular figures */
+  --text-label: 0.875rem;
+  --text-body: 1rem;
+  --text-title: 1.25rem;
+  --text-display: 2rem; /* page titles, 32 px bold: gradient words pass the 3:1 large-text floor */
+  --text-stat: 2.5rem; /* big numbers on Overview, Import and Digest */
+  --text-hero: 2.75rem; /* sign-in headline */
+  --leading-body: 1.6;
+  --leading-devanagari: 1.8; /* Devanagari needs room for the headline and vowel marks */
+  --tracking-title: -0.025em;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-label: 600;
+  --weight-title: 700;
+  --weight-stat: 800;
+  /* One spacing scale. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --space-5: 32px;
+  --space-6: 48px;
+  --space-7: 64px;
+  --space-half: 12px;
+  /* Radius: pills for buttons, badges and tabs; rounded fields; soft cards. */
+  --radius-pill: 999px;
+  --radius-control: 12px;
+  --radius-container: 20px;
+  --radius-overlay: 24px;
+  /* Shadows: soft navy-tinted lift for cards, the blue glow for the primary button only. */
+  --elevation-1: 0 1px 2px rgba(0, 5, 61, 0.05), 0 8px 24px -12px rgba(0, 5, 61, 0.12);
+  --elevation-2: 0 2px 4px rgba(0, 5, 61, 0.06), 0 20px 40px -16px rgba(0, 5, 61, 0.22);
+  --elevation-hero: 0 30px 80px -20px rgba(1, 13, 53, 0.55);
+  --glow-primary: 0 8px 24px -4px rgba(59, 130, 246, 0.3);
+  --glow-primary-hover:
+    0 14px 32px -4px rgba(59, 130, 246, 0.3), 0 0 0 4px rgba(59, 130, 246, 0.12);
+  --elevation-dock: 0 -12px 24px -16px rgba(0, 5, 61, 0.18);
+  --ring-focus: 0 0 0 4px rgba(11, 92, 255, 0.15);
+  --glow-hero: radial-gradient(
+    ellipse 70% 55% at 50% 100%,
+    rgba(59, 130, 246, 0.35) 0%,
+    rgba(59, 130, 246, 0) 70%
+  );
+  --glow-soft: radial-gradient(closest-side, rgba(59, 130, 246, 0.22), rgba(59, 130, 246, 0));
+  --color-glass: rgba(248, 250, 255, 0.82);
+  --icon-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  --duration-fast: 200ms;
+  --duration-base: 200ms;
+  --duration-enter: 420ms;
+  --duration-deliberate: 900ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0, 0, 0.2, 1);
+  --lift: translateY(-2px);
+  --z-sticky: 10;
+
+  /* Navy: sign-in background, the side nav and the phone top bar. */
+  --color-navy-1: #010d35; /* gradient start, deepest navy */
+  --color-navy-2: #051b59; /* gradient end */
+  --gradient-navy: linear-gradient(160deg, #010d35 0%, #051b59 100%);
+  --color-on-navy: #ffffff; /* 16.1:1 on #051B59 */
+  --color-on-navy-muted: #b8c7ea; /* secondary text on navy, 9.5:1 on #051B59, 10:1 on #010D35 */
+  --color-nav-hover: rgba(255, 255, 255, 0.08);
+  --color-focus-on-navy: #bfdbfe; /* focus ring on navy, 11.3:1 */
+  --color-streak-1: #3b82f6; /* decorative light streaks on sign-in */
+  --color-streak-2: #bfdbfe;
+  --color-streak-3: #8b5cf6;
+  /* Gradient words in headings: light on navy, darker on the light canvas (round 2 decision). */
+  --gradient-highlight-dark: linear-gradient(
+    90deg,
+    #3b82f6 0%,
+    #bfdbfe 100%
+  ); /* on navy: 5.1:1 to 13.3:1 */
+  --gradient-highlight-light: linear-gradient(
+    90deg,
+    #0b5cff 0%,
+    #3b82f6 100%
+  ); /* on #F8FAFF: 5.0:1 to 3.5:1, titles 32 px bold */
+
+  --color-bg: #f8faff; /* main canvas */
+  --color-surface: #ffffff; /* cards, tables, fields */
+  --color-surface-raised: #ffffff;
+  --color-bg-subtle: #e6f0fe; /* soft-blue panels, selected rows, badges, table heads */
+  --color-text: #00053d; /* dark navy, 19.3:1 on white, 16.8:1 on #E6F0FE */
+  --color-text-muted: #475569; /* slate, 7.6:1 on white, 6.6:1 on #E6F0FE */
+  --color-text-disabled: #8592ad; /* disabled controls only (exempt from text contrast) */
+  --color-border: #e1e8f5; /* hairline dividers between rows and around cards */
+  --color-border-strong: #7c8aa8; /* field edges, 3.5:1 on white */
+  --color-accent: #0b5cff; /* electric blue: primary buttons, active nav, links; white text 5.3:1 */
+  --color-accent-hover: #0848cc; /* white text 7.5:1 */
+  --color-accent-subtle: #e6f0fe;
+  --color-on-accent: #ffffff;
+  --color-link: #0b5cff; /* 5.3:1 on white, 5.0:1 on canvas, 4.6:1 on soft blue */
+  --color-focus: #0b5cff; /* focus ring on light surfaces, 5.3:1 */
+  --color-row-hover: #e6f0fe;
+
+  --color-danger: #b42318; /* urgent and errors, always with the word; 6.6:1 on white */
+  --color-danger-subtle: #feeceb; /* 5.8:1 with the danger text */
+  --color-warning: #8a4b00; /* untagged and budget notices; 6.8:1 on white */
+  --color-warning-subtle: #fff4db; /* 6.2:1 with the warning text */
+  --color-success: #0e6b3b; /* replied, all tagged, a fall in complaints; 6.6:1 on white */
+  --color-success-subtle: #e3f6eb; /* 5.9:1 with the success text */
+  --color-neg: #a0450d; /* negative sentiment, burnt orange so it never reads as urgent red */
+  --color-neg-subtle: #ffeee2; /* 5.5:1 with the neg text */
+  --color-neutral: #00053d; /* neutral sentiment and plain badges: navy on soft blue */
+  --color-neutral-subtle: #e6f0fe;
+
+  --color-chart-line: #0b5cff; /* trend lines */
+  --color-chart-grid: #e1e8f5;
+  --color-chart-mark: #00053d; /* the latest point on a trend */
+  --color-chart-fill: rgba(11, 92, 255, 0.1);
+  /* Heatmap: one blue ramp, count printed in every cell. */
+  --color-heat-0: #f8faff;
+  --color-heat-1: #e6f0fe;
+  --color-heat-2: #bfdbfe; /* navy text 13.6:1 */
+  --color-heat-3: #93c5fd; /* navy text 10.7:1 */
+  --color-heat-4: #3b82f6; /* navy text 5.2:1 */
+  --color-heat-5: #0b3fb8; /* white text 8.7:1 */
+  --color-heat-0-text: var(--color-text);
+  --color-heat-1-text: var(--color-text);
+  --color-heat-2-text: var(--color-text);
+  --color-heat-3-text: var(--color-text);
+  --color-heat-4-text: var(--color-text);
+  --color-heat-5-text: #ffffff;
+}
+
+/* Focus: a 2 px ring offset from the edge on every control; lighter on navy. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* Reduced motion: every animation and lift becomes a plain state change. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+    --duration-enter: 0ms;
+    --duration-deliberate: 0ms;
+    --lift: none;
+  }
+}
