@@ -65,5 +65,8 @@ func (s SMTP) Send(ctx context.Context, to, subject, body string) error {
 	if err := w.Close(); err != nil {
 		return fmt.Errorf("finish: %w", err)
 	}
-	return c.Quit()
+	// The server accepted the message at Close; a failed QUIT must not mark
+	// it failed, or the documented retry would send it twice (tenet 8).
+	_ = c.Quit()
+	return nil
 }

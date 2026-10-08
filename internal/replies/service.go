@@ -168,8 +168,12 @@ func (s *Service) Draft(ctx context.Context, user auth.User, reviewID int64) (re
 	}
 	if !ok {
 		existing, err := s.store.Reply(ctx, reviewID)
-		if err != nil || existing == nil {
-			return nil, false, fmt.Errorf("read reply %d after a lost claim: %v", reviewID, err)
+		if err != nil {
+			return nil, false, fmt.Errorf("read reply %d after a lost claim: %w", reviewID, err)
+		}
+		if existing == nil {
+			// The other request released its claim in between: ask again.
+			return nil, true, nil
 		}
 		if existing.Status != "drafting" {
 			return existing, false, nil // AC-US-00-002-2: no model call
@@ -206,8 +210,11 @@ func (s *Service) Draft(ctx context.Context, user auth.User, reviewID int64) (re
 		return nil, false, fmt.Errorf("store draft %d: %w", reviewID, err)
 	}
 	stored, err := s.store.Reply(ctx, reviewID)
-	if err != nil || stored == nil {
-		return nil, false, fmt.Errorf("read draft %d: %v", reviewID, err)
+	if err != nil {
+		return nil, false, fmt.Errorf("read draft %d: %w", reviewID, err)
+	}
+	if stored == nil {
+		return nil, true, nil // released by a newer claim in between: ask again
 	}
 	return stored, stored.Status == "drafting", nil
 }

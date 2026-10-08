@@ -45,8 +45,11 @@ func (s *Store) ClaimDigest(ctx context.Context, requestID string, d digest.Dige
 		RecipientEmail: d.Recipient, UntaggedCount: int32(d.Untagged), Subject: d.Subject, Body: d.Body})
 	if errors.Is(err, pgx.ErrNoRows) {
 		prev, ok, err := s.DigestByRequestID(ctx, requestID)
-		if err != nil || !ok {
-			return digest.Digest{}, false, fmt.Errorf("read the digest that holds the request id: %v", err)
+		if err != nil {
+			return digest.Digest{}, false, fmt.Errorf("read the digest that holds the request id: %w", err)
+		}
+		if !ok {
+			return digest.Digest{}, false, errors.New("the digest that holds the request id is gone")
 		}
 		return prev, false, nil
 	}

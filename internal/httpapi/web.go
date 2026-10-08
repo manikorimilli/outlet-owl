@@ -27,6 +27,10 @@ func webHandler(dir string) http.Handler {
 			files.ServeHTTP(w, r)
 			return
 		}
+		if strings.HasPrefix(clean, "/assets/") {
+			http.NotFound(w, r) // a stale hashed name must not get index.html as JavaScript
+			return
+		}
 		w.Header().Set("Cache-Control", "no-cache")
 		http.ServeFile(w, r, index)
 	})

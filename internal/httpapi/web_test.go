@@ -29,6 +29,9 @@ func TestWeb_ServesFilesAndFallsBackToIndex(t *testing.T) {
 			t.Errorf("%s: %d %q", tc.path, rec.Code, rec.Body.String())
 		}
 	}
+	if rec := do(h, request{method: http.MethodGet, path: "/assets/app-OLD.js"}); rec.Code != 404 {
+		t.Errorf("stale asset = %d, want 404", rec.Code)
+	}
 	if rec := do(h, request{method: http.MethodGet, path: "/api/v1/nope"}); rec.Code != 404 || !strings.Contains(rec.Body.String(), "not_found") {
 		t.Errorf("unknown API route = %d %s", rec.Code, rec.Body)
 	}

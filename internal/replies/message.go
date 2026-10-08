@@ -39,9 +39,10 @@ func FirstName(name string) string {
 }
 
 // Message builds the reply call's user message. The review text is cut at
-// 2,000 characters and cannot close its own tag.
+// 2,000 characters and cannot close its own tag: every "<" in it becomes
+// "‹", so no spelling or nesting of </review> survives.
 func Message(in Input) string {
-	text := strings.ReplaceAll(in.Text, "</review", "")
+	text := strings.ReplaceAll(in.Text, "<", "‹")
 	if utf8.RuneCountInString(text) > maxReviewRunes {
 		text = string([]rune(text)[:maxReviewRunes])
 	}

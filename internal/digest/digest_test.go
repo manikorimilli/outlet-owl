@@ -169,6 +169,13 @@ func TestGenerate_ManagerRefused(t *testing.T) {
 // fakeSMTP accepts one message on a loopback port and hands back what it got.
 func fakeSMTP(t *testing.T) (string, <-chan string) {
 	t.Helper()
+	return fakeSMTPWith(t, false)
+}
+
+// fakeSMTPWith can drop the connection at QUIT, after it has accepted the
+// message.
+func fakeSMTPWith(t *testing.T, dropAtQuit bool) (string, <-chan string) {
+	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -208,7 +215,9 @@ func fakeSMTP(t *testing.T) (string, <-chan string) {
 				inData = true
 				write("354 go")
 			case cmd == "QUIT":
-				write("221 bye")
+				if !dropAtQuit {
+					write("221 bye")
+				}
 				return
 			default:
 				write("250 ok")
@@ -231,6 +240,16 @@ func TestSMTP_SendsOnePlainTextMessage(t *testing.T) {
 			t.Errorf("message lacks %q:\n%s", want, msg)
 		}
 	}
+}
+
+// Tenet 8: a message the server accepted is delivered, even when QUIT
+// fails, so a retry never sends it twice.
+func TestSMTP_AcceptedThenQuitFailsIsDelivered(t *testing.T) {
+	addr, got := fakeSMTPWith(t, true)
+	if err := (SMTP{Addr: addr, From: "a@b", Timeout: 5 * time.Second}).Send(context.Background(), "x@y", "s", "b"); err != nil {
+		t.Fatalf("send = %v, want delivered", err)
+	}
+	<-got
 }
 
 func TestSMTP_NoServerIsAnError(t *testing.T) {
