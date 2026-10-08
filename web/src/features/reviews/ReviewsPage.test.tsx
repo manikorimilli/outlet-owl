@@ -64,6 +64,21 @@ describe("ReviewsPage", () => {
     expect(screen.getByTestId("location").textContent).toBe("/reviews?sentiment=negative");
   });
 
+  it("the Filters button folds and unfolds the filters (S-04 phone)", async () => {
+    stubFetch({ ...base, [list({})]: page([review(1, "first")]) } as Routes);
+    renderApp("/reviews");
+    await screen.findByText("first");
+
+    const toggle = screen.getByRole("button", { name: "Filters" });
+    const form = screen.getByRole("search");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveAttribute("aria-controls", form.id);
+    expect(form).not.toHaveClass("open");
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(form).toHaveClass("open");
+  });
+
   it("the search box submits a trimmed search", async () => {
     stubFetch({
       ...base,

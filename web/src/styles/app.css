@@ -720,6 +720,27 @@ table.data td.num {
 .filters .f-search {
   grid-column: 1 / -1;
 }
+.filters-toggle {
+  display: none;
+}
+@media (max-width: 600px) {
+  /* S-04 phone: search and a Filters button on one row, the rest folded. */
+  .filters {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .filters .f-search {
+    grid-column: auto;
+  }
+  .filters-toggle {
+    display: inline-flex;
+  }
+  .filters:not(.open) .f-more {
+    display: none;
+  }
+  .filters.open .f-more {
+    grid-column: 1 / -1;
+  }
+}
 .filters label {
   display: grid;
   gap: var(--space-1);

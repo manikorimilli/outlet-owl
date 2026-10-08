@@ -1,7 +1,8 @@
 import { useEffect, useId, useState } from "react";
 import { Link, useParams } from "react-router";
 import { asApiError, type ApiError } from "../../lib/api";
-import { formatDate, reasonLabels, sentimentLabels } from "../../lib/format";
+import { useSession } from "../../app/session-context";
+import { formatDate, formatInstant, reasonLabels, sentimentLabels } from "../../lib/format";
 import { useLoad } from "../../lib/use-load";
 import { listThemes } from "../reviews/api";
 import {
@@ -150,11 +151,13 @@ function ReadOnlyReply({ detail }: { detail: ReviewDetail }) {
 }
 
 function RepliedNote({ reply }: { reply: Reply }) {
+  const { session } = useSession();
+  const tz = session.status === "signed-in" ? session.me.brand.timezone : "UTC";
   return (
     <p className="badge success">
       Replied
       {reply.replied_by ? ` by ${reply.replied_by.name}` : ""}
-      {reply.replied_at ? ` on ${formatDate(reply.replied_at.slice(0, 10))}` : ""}
+      {reply.replied_at ? ` on ${formatInstant(reply.replied_at, tz)}` : ""}
     </p>
   );
 }
@@ -303,7 +306,7 @@ function ReplyEditor({
       </div>
       {unavailable && (
         <p className="notice warn" role="alert">
-          {failure?.message} You can write the reply yourself below.
+          {failure?.message}
         </p>
       )}
       {conflict && (

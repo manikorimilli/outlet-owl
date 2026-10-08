@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router";
 import { useSession } from "../../app/session-context";
 import { asApiError, type ApiError } from "../../lib/api";
@@ -41,6 +41,10 @@ export function ReviewsPage() {
   );
   const [more, setMore] = useState<More>({ key, items: [], next: null, busy: false, error: null });
   const [draft, setDraft] = useState({ key, q: filters.q ?? "" });
+  // On a phone the filters fold behind a button (S-04 mockup); the CSS shows
+  // them always on wider screens.
+  const [showFilters, setShowFilters] = useState(false);
+  const formId = useId();
 
   // A new filter set starts from its first page and its own search box text.
   const extra = more.key === key ? more : { key, items: [], next: null, busy: false, error: null };
@@ -128,7 +132,12 @@ export function ReviewsPage() {
 
       {!(empty && !active) && (
         <section aria-label="Search and filters">
-          <form className="filters" onSubmit={search} role="search">
+          <form
+            id={formId}
+            className={showFilters ? "filters open" : "filters"}
+            onSubmit={search}
+            role="search"
+          >
             <label className="f-search">
               Search reviews
               <input
@@ -139,8 +148,17 @@ export function ReviewsPage() {
                 placeholder="Words in the review or the reviewer name"
               />
             </label>
+            <button
+              className="btn btn-secondary filters-toggle"
+              type="button"
+              aria-expanded={showFilters}
+              aria-controls={formId}
+              onClick={() => setShowFilters((v) => !v)}
+            >
+              Filters
+            </button>
             {isAdmin && (
-              <label>
+              <label className="f-more">
                 Outlet
                 <select
                   value={filters.outlet ?? ""}
@@ -161,7 +179,7 @@ export function ReviewsPage() {
                 </select>
               </label>
             )}
-            <label>
+            <label className="f-more">
               Theme
               <select
                 value={filters.theme ?? ""}
@@ -175,7 +193,7 @@ export function ReviewsPage() {
                 ))}
               </select>
             </label>
-            <label>
+            <label className="f-more">
               Sentiment
               <select
                 value={filters.sentiment ?? ""}
@@ -192,7 +210,7 @@ export function ReviewsPage() {
                 <option value="negative">Negative</option>
               </select>
             </label>
-            <label>
+            <label className="f-more">
               Reply
               <select
                 value={filters.reply ?? ""}
@@ -206,7 +224,7 @@ export function ReviewsPage() {
                 <option value="replied">Replied</option>
               </select>
             </label>
-            <label className="check">
+            <label className="check f-more">
               <input
                 type="checkbox"
                 checked={filters.urgent ?? false}
@@ -214,7 +232,7 @@ export function ReviewsPage() {
               />
               Urgent only
             </label>
-            <button className="btn btn-secondary" type="submit">
+            <button className="btn btn-secondary f-more" type="submit">
               Search
             </button>
           </form>

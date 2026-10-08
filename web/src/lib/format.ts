@@ -13,6 +13,19 @@ export function formatDate(d: string): string {
   return `${day} ${months[m - 1]} ${y}`;
 }
 
+// formatInstant shows an instant as its date in the brand timezone, so a
+// reply approved at 01:30 IST on 5 Oct reads "5 Oct 2026", not UTC's 4 Oct.
+export function formatInstant(iso: string, timeZone: string): string {
+  // en-CA writes YYYY-MM-DD; formatDate then spells it like every other date.
+  const day = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(iso));
+  return formatDate(day);
+}
+
 // formatRange shows "28 Sep to 4 Oct 2026", or "21 to 27 Sep" with year
 // false.
 export function formatRange(start: string, end: string, year = true): string {
