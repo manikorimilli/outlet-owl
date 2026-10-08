@@ -97,6 +97,14 @@ type chatBody struct {
 	Messages    []message `json:"messages"`
 	MaxTokens   int       `json:"max_tokens"`
 	Temperature *float64  `json:"temperature,omitempty"`
+	Reasoning   reasoning `json:"reasoning"`
+}
+
+// reasoning is always sent off: max_tokens (1000, REQ-032) covers reasoning
+// and answer together, and a reasoning model otherwise spends it all
+// thinking and returns an empty, cut-off answer (ADR-0009).
+type reasoning struct {
+	Enabled bool `json:"enabled"`
 }
 
 // clampMaxTokens caps what a caller asks for at 1000; zero means 1000
@@ -119,6 +127,7 @@ func buildBody(r Request, model string) ([]byte, int, error) {
 		},
 		MaxTokens:   maxTokens,
 		Temperature: r.Prompt.Temperature,
+		Reasoning:   reasoning{Enabled: false},
 	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("gateway: build the request body: %w", err)

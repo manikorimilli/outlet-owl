@@ -19,5 +19,6 @@
 ## Consequences
 
 - The prompts, the line format, the parser, the retries and the budget stop are unchanged.
+- Every request sends `"reasoning": {"enabled": false}` (OpenRouter's documented switch; reasoning is not mandatory for either model). The first trial on the free model spent 853 of its 1,000 tokens reasoning and returned an empty, cut-off answer, because `max_tokens` covers reasoning and answer together.
 - Quality on another model is not the quality ADR-0008 was chosen for: `make eval` must pass on the model actually used before its results are trusted.
 - Free models have daily request limits on OpenRouter and may answer slower; a run can stop part way, and the worker tags the rest on a later pass.

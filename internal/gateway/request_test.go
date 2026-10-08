@@ -103,3 +103,11 @@ func TestBody_UsesTheConfiguredModel(t *testing.T) {
 		t.Fatalf("default model = %q, want %q", g.ModelID(), Model)
 	}
 }
+
+// ADR-0009: reasoning is sent off, so the 1,000-token cap holds the answer.
+func TestBody_TurnsReasoningOff(t *testing.T) {
+	body, _, _ := buildBody(request(), Model)
+	if !strings.Contains(string(body), `"reasoning":{"enabled":false}`) {
+		t.Fatalf("body %s lacks reasoning off", body)
+	}
+}
