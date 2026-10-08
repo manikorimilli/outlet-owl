@@ -1,9 +1,9 @@
 # ADR-0008: Tag reviews and draft replies with prompt-only calls to Claude Haiku 4.5
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-06
 - Task: none (design before the first task)
-- Deciders: awaiting the product owner
+- Deciders: the product owner, 2026-10-08
 - Area: llm approach
 - Reversibility: cheap: the prompts are versioned files and the line format is parsed in one place; a new approach is a new prompt version and parser
 
@@ -26,7 +26,7 @@
 
 ## Decision
 
-Proposed:
+Accepted 2026-10-08. Temperature 0 lowers variation but does not make answers repeatable; recordings do (phase 3 LLD).
 
 - **Tagging:** one prompt-only call per batch of up to 20 reviews to Claude Haiku 4.5 through OpenRouter, with thinking off and temperature 0. The answer is one line per review: id, theme codes, sentiment, urgent reasons. Code validates each line by review id; missing or invalid ids are retried at most twice.
 - **Drafting:** one prompt-only call per review a manager opens, carrying the brand tone and the language rule.
