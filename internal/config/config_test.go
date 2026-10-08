@@ -229,3 +229,19 @@ func TestLoad_ModelID(t *testing.T) {
 		t.Fatalf("unset ModelID = %q, want empty (the gateway default)", got.ModelID)
 	}
 }
+
+// T-07: by default the server listens on loopback only; HOST opens it.
+func TestLoad_ListensOnLoopbackByDefault(t *testing.T) {
+	setValidEnv(t)
+	t.Setenv("HOST", "")
+	t.Setenv("PORT", "")
+	got, err := Load()
+	if err != nil || got.Addr() != "127.0.0.1:8080" {
+		t.Fatalf("Addr = %q, %v; want 127.0.0.1:8080", got.Addr(), err)
+	}
+	t.Setenv("HOST", "0.0.0.0")
+	t.Setenv("PORT", "9090")
+	if got, _ := Load(); got.Addr() != "0.0.0.0:9090" {
+		t.Fatalf("Addr = %q, want 0.0.0.0:9090", got.Addr())
+	}
+}

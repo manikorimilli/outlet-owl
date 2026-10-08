@@ -5,6 +5,7 @@ package config
 import (
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -19,6 +20,9 @@ const minJWTSecretBytes = 32
 
 // Config is the validated process configuration.
 type Config struct {
+	// Host is the address the server listens on; 127.0.0.1 by default, so
+	// other machines on the network cannot reach it (threat model T-07).
+	Host        string
 	Port        string
 	LogLevel    slog.Level
 	DatabaseURL string
@@ -52,10 +56,14 @@ type Config struct {
 	WebDir string
 }
 
+// Addr is the listen address, host and port.
+func (c Config) Addr() string { return net.JoinHostPort(c.Host, c.Port) }
+
 // Load reads and validates the environment.
 func Load() (Config, error) {
 	var problems []string
 	c := Config{
+		Host:        envOr("HOST", "127.0.0.1"),
 		Port:        envOr("PORT", "8080"),
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		JWTSecret:   []byte(os.Getenv("JWT_SECRET")),

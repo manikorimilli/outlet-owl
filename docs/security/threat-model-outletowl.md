@@ -58,7 +58,7 @@ Deployment today: one machine, local demo only (PRD section 6). Section 5 lists 
 | T-04 | E2, B1 | Spoofing | a stolen cookie read by page script | L | H | HttpOnly and SameSite=Strict cookie, internal/httpapi/session.go:30 | mitigated |
 | T-05 | E2, B1 | Spoofing | a copied token still works after sign-out or role change, for up to 8 h | M | M | role and active flag re-read on every request, internal/auth/service.go:107; sign-out does not revoke, accepted in ADR-0007 | mitigated |
 | T-06 | B1 | Information disclosure | the cookie travels in clear text over HTTP and has no Secure flag | M | H | new story: serve over HTTPS with a Secure cookie before any non-local deployment | planned |
-| T-07 | B1 | Spoofing | another device on the same network reaches the API, since it listens on all interfaces | M | H | new story: bind the API to 127.0.0.1 by default and make the address a setting | unmitigated |
+| T-07 | B1 | Spoofing | another device on the same network reaches the API, since it listens on all interfaces | M | H | listens on HOST, 127.0.0.1 by default, internal/config/config.go:66 | mitigated |
 | T-08 | E3 to E7 | Tampering | cross-site request forgery: another site makes the browser send a write | L | H | Go CrossOriginProtection refuses cross-site writes, internal/middleware/crossorigin.go:29; SameSite=Strict, internal/httpapi/session.go:31 | mitigated |
 | T-09 | E5, B5 | Elevation of privilege | a manager reads another outlet's review, list, dashboard or theme counts by id or filter | M | H | every query ANDs all_outlets OR outlet_id, db/queries/reviews.sql:18, db/queries/dashboard.sql:18; scope from the re-read user, internal/auth/service.go:46 | mitigated |
 | T-10 | E6, B5 | Elevation of privilege | a manager drafts, edits or approves another outlet's reply | M | H | manager check before any write, internal/replies/service.go:144; writes bound to the outlet, db/queries/replies.sql:53 | mitigated |
@@ -89,22 +89,20 @@ Deployment today: one machine, local demo only (PRD section 6). Section 5 lists 
 | --- | --- | --- | --- |
 | T-01 | accepted while local only; must ship before any shared deployment | backend lead role | 2026-11-01 |
 | T-06 | planned before any non-local deployment | operator role | 2026-11-01 |
-| T-07 | accepted while the demo machine is trusted; fix is small | backend lead role | 2026-11-01 |
 | T-17 | accepted while local only | backend lead role | 2026-11-01 |
 | T-21 | planned: free models only for synthetic demo data | product owner role | 2026-10-15 |
 | T-23 | accepted for the demo seed; never seed a shared database | operator role | 2026-11-01 |
 
-Before any shared or internet deployment: T-01, T-06, T-07, T-17 and T-23 must be closed, `JWT_SECRET` must come from a secret store, MailHog replaced by a real relay with auth, and MODEL_ID left empty or set to a paid model with a data agreement.
+Before any shared or internet deployment: T-01, T-06, T-17 and T-23 must be closed, `JWT_SECRET` must come from a secret store, MailHog replaced by a real relay with auth, and MODEL_ID left empty or set to a paid model with a data agreement.
 
 ## 6. New stories needed
 
 - Limit failed sign-ins per email and per client address (mitigates T-01), acceptance: the sixth wrong password within 15 minutes answers 429 and a correct one is still refused until the window ends.
 - Serve over HTTPS with a Secure cookie before any non-local deployment (mitigates T-06), acceptance: the session cookie carries Secure and plain HTTP redirects to HTTPS.
-- Bind the API to 127.0.0.1 by default and make the address a setting (mitigates T-07), acceptance: with defaults, a request from another host is refused at connect.
 - Set X-Content-Type-Options, a frame-ancestors CSP and Referrer-Policy on every response (mitigates T-17), acceptance: every response carries the three headers and the UI cannot load in a frame.
 - Warn at start when MODEL_ID names a free model (mitigates T-21), acceptance: a `:free` model id logs a warning naming the data risk.
 - Refuse to seed when the environment is not local, or require SEED_PASSWORD (mitigates T-23), acceptance: a DATABASE_URL host other than localhost without SEED_PASSWORD stops the seed.
 
 ## 7. Counts
 
-Assets 8, boundaries 7 (assumed 0; no C4 diagram, all read from files), entry points 10, threats 29 (mitigated 23, planned 3, unmitigated 3), plus T-30 considered, none. Gate: passed.
+Assets 8, boundaries 7 (assumed 0; no C4 diagram, all read from files), entry points 10, threats 29 (mitigated 24, planned 3, unmitigated 2), plus T-30 considered, none. Gate: passed.
