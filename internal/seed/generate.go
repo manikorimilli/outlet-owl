@@ -25,6 +25,10 @@ const (
 	SpikeExtra = 15
 )
 
+// MinTotal is the smallest set GenerateN makes: one review per outlet and
+// week, plus the spike.
+var MinTotal = len(Outlets)*Weeks + SpikeExtra
+
 // Review is one generated review; Outlet indexes Outlets.
 type Review struct {
 	Outlet       int
@@ -35,13 +39,18 @@ type Review struct {
 	ReviewerName string
 }
 
-// Generate returns the reviews for the 26 weeks ending with the week that
-// starts on latestMonday, ordered by date then outlet.
-func Generate(latestMonday time.Time) []Review {
+// Generate returns the Total reviews for the 26 weeks ending with the week
+// that starts on latestMonday, ordered by date then outlet.
+func Generate(latestMonday time.Time) []Review { return GenerateN(latestMonday, Total) }
+
+// GenerateN is Generate with a smaller or larger set, for trial runs on a
+// rate-limited model (make seed SEED_ARGS=-reviews=500). The spike is the
+// same 15 reviews whatever the total; total must be at least MinTotal.
+func GenerateN(latestMonday time.Time, total int) []Review {
 	rng := rand.New(rand.NewPCG(20261006, 1500))
 	cells := len(Outlets) * Weeks
-	base := (Total - SpikeExtra) / cells
-	extra := (Total - SpikeExtra) % cells
+	base := (total - SpikeExtra) / cells
+	extra := (total - SpikeExtra) % cells
 	firstMonday := latestMonday.AddDate(0, 0, -7*(Weeks-1))
 
 	var out []Review

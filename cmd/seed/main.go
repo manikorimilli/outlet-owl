@@ -39,8 +39,13 @@ var managers = []string{"Neha Kulkarni", "Arjun Mehta", "Farhan Sheikh", "Deepa 
 
 func main() {
 	tag := flag.Bool("tag", true, "tag the reviews after seeding (replay needs recordings; record and live spend budget)")
+	reviews := flag.Int("reviews", seed.Total, "how many reviews to generate; fewer for a trial on a rate-limited model")
 	flag.Parse()
-	if err := run(*tag); err != nil {
+	if *reviews < seed.MinTotal || *reviews > 10*seed.Total {
+		fmt.Fprintf(os.Stderr, "seed: -reviews must be between %d and %d\n", seed.MinTotal, 10*seed.Total)
+		os.Exit(2)
+	}
+	if err := run(*tag, *reviews); err != nil {
 		fmt.Fprintln(os.Stderr, "seed:", err)
 		os.Exit(1)
 	}
@@ -52,7 +57,7 @@ type lockedStore struct{ *store.Store }
 
 func (lockedStore) LockTagging(context.Context) (func(), error) { return func() {}, nil }
 
-func run(tag bool) error {
+func run(tag bool, total int) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -89,7 +94,7 @@ func run(tag bool) error {
 	}
 
 	latest := dashboard.LatestCompleteWeek(time.Now(), cfg.BrandTimezone)
-	gen := seed.Generate(latest.Start)
+	gen := seed.GenerateN(latest.Start, total)
 	rows := make([]store.SeedReview, len(gen))
 	for i, r := range gen {
 		rows[i] = store.SeedReview{OutletID: outletIDs[r.Outlet], Source: r.Source, Date: r.Date, Rating: r.Rating,
