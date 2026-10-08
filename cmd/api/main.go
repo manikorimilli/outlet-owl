@@ -22,8 +22,11 @@ import (
 	"github.com/manikorimilli/outlet-owl/internal/config"
 	"github.com/manikorimilli/outlet-owl/internal/gateway"
 	"github.com/manikorimilli/outlet-owl/internal/httpapi"
+	"github.com/manikorimilli/outlet-owl/internal/imports"
 	"github.com/manikorimilli/outlet-owl/internal/outlets"
 	"github.com/manikorimilli/outlet-owl/internal/store"
+	"github.com/manikorimilli/outlet-owl/internal/tagging"
+	"github.com/manikorimilli/outlet-owl/prompts"
 )
 
 var version = "dev"
@@ -59,9 +62,12 @@ func run() error {
 	if err := loadUsers(ctx, logger, st, cfg.UsersFile); err != nil {
 		return err
 	}
-	// The gateway has no caller until build phase 3; starting it here checks
-	// the budget table and reconciles the total once (phase 2 LLD 4.4).
-	if _, err := startGateway(ctx, logger, st, cfg); err != nil {
+	gw, err := startGateway(ctx, logger, st, cfg)
+	if err != nil {
+		return err
+	}
+	tagger, err := newTagger(logger, st, gw, cfg.TaggingEnabled)
+	if err != nil {
 		return err
 	}
 	tokens, err := auth.NewTokens(cfg.JWTSecret, nil)
@@ -74,6 +80,7 @@ func run() error {
 		DB:      st,
 		Auth:    auth.NewService(st, tokens),
 		Outlets: outlets.NewService(st),
+		Imports: imports.NewService(st, tagger),
 		Brand:   httpapi.Brand{Name: cfg.BrandName, Timezone: cfg.BrandTimezone.String()},
 	})
 	srv := &http.Server{
@@ -84,6 +91,20 @@ func run() error {
 		WriteTimeout:      60 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
+
+	// One tagging pass at start picks up reviews left untagged by an earlier
+	// run (ADR-0006); later passes follow each import.
+	taggerCtx, stopTagger := context.WithCancel(context.Background())
+	taggerDone := make(chan struct{})
+	go func() {
+		defer close(taggerDone)
+		tagger.Run(taggerCtx)
+	}()
+	tagger.Signal()
+	defer func() {
+		stopTagger()
+		<-taggerDone
+	}()
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -107,6 +128,20 @@ func run() error {
 	}
 	logger.Info("stopped")
 	return nil
+}
+
+// newTagger builds the tagging worker with the current tagging prompt
+// version built into the binary (Q-011).
+func newTagger(logger *slog.Logger, st *store.Store, gw *gateway.Gateway, enabled bool) (*tagging.Worker, error) {
+	reg, err := prompts.Load()
+	if err != nil {
+		return nil, err
+	}
+	prompt, err := reg.Current("tagging")
+	if err != nil {
+		return nil, err
+	}
+	return tagging.New(tagging.Config{Store: st, Model: gw, Prompt: prompt, Enabled: enabled, Logger: logger}), nil
 }
 
 // loadUsers applies the users file before the server listens (HLD section 3,

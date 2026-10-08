@@ -6,6 +6,8 @@ import (
 	"net/http"
 
 	"github.com/manikorimilli/outlet-owl/internal/auth"
+	"github.com/manikorimilli/outlet-owl/internal/connector"
+	"github.com/manikorimilli/outlet-owl/internal/imports"
 	"github.com/manikorimilli/outlet-owl/internal/middleware"
 	"github.com/manikorimilli/outlet-owl/internal/outlets"
 )
@@ -48,9 +50,23 @@ func writeDomainError(w http.ResponseWriter, r *http.Request, logger *slog.Logge
 	var invalid *validationError
 	var badName *outlets.ValidationError
 	var taken *outlets.NameTakenError
+	var fileErr *connector.FileError
+	var bodyTooLarge *http.MaxBytesError
 	switch {
 	case errors.Is(err, errUnsupportedMediaType):
 		WriteError(w, r, http.StatusUnsupportedMediaType, "unsupported_media_type", "Send application/json.")
+	case errors.Is(err, errNotMultipart):
+		WriteError(w, r, http.StatusUnsupportedMediaType, "unsupported_media_type", "Send the file as multipart/form-data.")
+	case errors.Is(err, connector.ErrFileTooLarge), errors.As(err, &bodyTooLarge):
+		WriteError(w, r, http.StatusRequestEntityTooLarge, "file_too_large", "The CSV file is over 5 MB. Split it into smaller files and import each.")
+	case errors.As(err, &fileErr):
+		details := make([]Detail, len(fileErr.Problems))
+		for i, p := range fileErr.Problems {
+			details[i] = Detail{Field: p.Field, Reason: p.Reason}
+		}
+		WriteErrorDetails(w, r, http.StatusBadRequest, "csv_invalid", fileErr.Message, details)
+	case errors.Is(err, imports.ErrRoleNotAllowed):
+		WriteError(w, r, http.StatusForbidden, "role_not_allowed", "Only the brand admin can import reviews.")
 	case errors.As(err, &malformed):
 		WriteError(w, r, http.StatusBadRequest, "malformed_request", "The request could not be read: "+malformed.reason+".")
 	case errors.As(err, &invalid):
