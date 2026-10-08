@@ -42,3 +42,6 @@ docs/design/screens/app/shots/
 /.profile
 /.ripgreprc
 /.gitconfig
+
+# The tone-check scoring sheet (make tone-check) holds review text: keep it local.
+tone-check.md

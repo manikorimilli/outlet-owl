@@ -45,6 +45,8 @@ type Config struct {
 	// SMTPFrom is its sender address.
 	SMTPAddr string
 	SMTPFrom string
+	// WebDir is the built web app the server serves (ADR-0002).
+	WebDir string
 }
 
 // Load reads and validates the environment.
@@ -107,6 +109,7 @@ func Load() (Config, error) {
 	}
 	c.SMTPAddr = envOr("SMTP_ADDR", "localhost:1025")
 	c.SMTPFrom = envOr("SMTP_FROM", "digest@outletowl.local")
+	c.WebDir = envOr("WEB_DIST", "web/dist")
 	if len(problems) > 0 {
 		return Config{}, fmt.Errorf("config: %s", strings.Join(problems, "; "))
 	}

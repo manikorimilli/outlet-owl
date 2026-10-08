@@ -216,14 +216,41 @@ func (w *Worker) tagBatch(ctx context.Context, batch []int64) (Report, error) {
 	if err != nil {
 		return Report{}, fmt.Errorf("read review texts: %w", err)
 	}
+	var rep Report
+	unresolved, calls, err := Classify(ctx, w.cfg.Model, w.cfg.Prompt, gateway.Tagging, reviews,
+		func(valid []Result) error {
+			n, err := w.cfg.Store.SaveResults(ctx, valid, w.cfg.Prompt.Number)
+			if err != nil {
+				return fmt.Errorf("store tag results: %w", err)
+			}
+			rep.Tagged += n
+			return nil
+		}, w.cfg.Logger)
+	rep.Calls = calls
+	if err != nil {
+		rep.Unresolved = len(batch) - rep.Tagged
+		return rep, err
+	}
+	rep.Unresolved = len(unresolved)
+	w.cfg.Logger.Info("tagging batch", "first_id", batch[0], "size", len(batch), "calls", rep.Calls,
+		"tagged", rep.Tagged, "unresolved", rep.Unresolved)
+	return rep, nil
+}
+
+// Classify tags one batch of reviews: one request, then at most MaxRetries
+// rounds for the ids that came back missing or invalid (one request) or
+// repeated (one request each), matched by review id (REQ-012 to REQ-014).
+// save receives each call's valid results as they arrive; the worker stores
+// them, the evaluation keeps them. It returns the ids still unresolved and
+// the number of calls; any model or save error ends it.
+func Classify(ctx context.Context, model Model, prompt prompts.Version, purpose gateway.Purpose, reviews []Review,
+	save func([]Result) error, logger *slog.Logger) (unresolved []int64, calls int, err error) {
 	texts := make(map[int64]string, len(reviews))
 	pending := make([]int64, 0, len(reviews))
 	for _, r := range reviews {
 		texts[r.ID] = r.Text
 		pending = append(pending, r.ID)
 	}
-
-	var rep Report
 	var alone []int64
 	for round := 0; round <= MaxRetries && len(pending)+len(alone) > 0; round++ {
 		groups := make([][]int64, 0, 1+len(alone))
@@ -235,47 +262,29 @@ func (w *Worker) tagBatch(ctx context.Context, batch []int64) (Report, error) {
 		}
 		pending, alone = nil, nil
 		for _, g := range groups {
-			ans, err := w.call(ctx, g, texts)
-			rep.Calls++
-			if err != nil {
-				rep.Unresolved = len(batch) - rep.Tagged
-				return rep, err
+			batch := make([]Review, len(g))
+			for i, id := range g {
+				batch[i] = Review{ID: id, Text: texts[id]}
 			}
-			n, err := w.cfg.Store.SaveResults(ctx, ans.Valid, w.cfg.Prompt.Number)
+			resp, err := model.Complete(ctx, gateway.Request{Purpose: purpose, Prompt: prompt, User: Message(batch)})
+			calls++
 			if err != nil {
-				rep.Unresolved = len(batch) - rep.Tagged
-				return rep, fmt.Errorf("store tag results: %w", err)
+				return nil, calls, err
 			}
-			rep.Tagged += n
+			ans := ParseAnswer(resp.Text, resp.FinishReason == "length", g, Themes)
+			if ans.Foreign > 0 && logger != nil {
+				logger.Warn("tagging answer named ids outside its batch; discarded", "lines", ans.Foreign)
+			}
+			if len(ans.Valid) > 0 {
+				if err := save(ans.Valid); err != nil {
+					return nil, calls, err
+				}
+			}
 			pending = append(pending, ans.Missing...)
 			alone = append(alone, ans.Repeated...)
 		}
 		slices.Sort(pending)
 		slices.Sort(alone)
 	}
-	rep.Unresolved = len(pending) + len(alone)
-	w.cfg.Logger.Info("tagging batch", "first_id", batch[0], "size", len(batch), "calls", rep.Calls,
-		"tagged", rep.Tagged, "unresolved", rep.Unresolved)
-	return rep, nil
-}
-
-// call sends one request for ids and checks the answer against them.
-func (w *Worker) call(ctx context.Context, ids []int64, texts map[int64]string) (Answer, error) {
-	reviews := make([]Review, len(ids))
-	for i, id := range ids {
-		reviews[i] = Review{ID: id, Text: texts[id]}
-	}
-	resp, err := w.cfg.Model.Complete(ctx, gateway.Request{
-		Purpose: gateway.Tagging,
-		Prompt:  w.cfg.Prompt,
-		User:    Message(reviews),
-	})
-	if err != nil {
-		return Answer{}, err
-	}
-	ans := ParseAnswer(resp.Text, resp.FinishReason == "length", ids, Themes)
-	if ans.Foreign > 0 {
-		w.cfg.Logger.Warn("tagging answer named ids outside its batch; discarded", "lines", ans.Foreign)
-	}
-	return ans, nil
+	return append(pending, alone...), calls, nil
 }

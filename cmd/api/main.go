@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 	// Embeds the IANA zone database so BRAND_TIMEZONE loads on machines and
@@ -100,6 +101,7 @@ func run() error {
 		Digests:   digest.NewService(st, reports, digest.SMTP{Addr: cfg.SMTPAddr, From: cfg.SMTPFrom}),
 		Status:    statusReader{Store: st, worker: tagger, gw: gw},
 		Brand:     httpapi.Brand{Name: cfg.BrandName, Timezone: cfg.BrandTimezone.String()},
+		WebDir:    webDir(logger, cfg.WebDir),
 	})
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
@@ -146,6 +148,16 @@ func run() error {
 	}
 	logger.Info("stopped")
 	return nil
+}
+
+// webDir returns dir when it holds a built web app, else "" and a log line:
+// the API still serves, and make web-dev serves the UI in development.
+func webDir(logger *slog.Logger, dir string) string {
+	if _, err := os.Stat(filepath.Join(dir, "index.html")); err != nil {
+		logger.Info("web app not built; serving the API only (make build, or make web-dev for development)", "dir", dir)
+		return ""
+	}
+	return dir
 }
 
 // statusReader joins what GET /tagging/status reads: the counts from the

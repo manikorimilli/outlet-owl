@@ -1,0 +1,4 @@
+{"id":1,"text":"Found a cockroach in my food","themes":["food","cleanliness"],"sentiment":"negative","urgent_reasons":["food_safety"]}
+{"id":2,"text":"I will take you to consumer court","themes":["price"],"sentiment":"negative","urgent_reasons":["legal_threat"]}
+{"id":3,"text":"Lovely dosa","themes":["food"],"sentiment":"positive","urgent_reasons":[]}
+{"id":4,"text":"Waited an hour","themes":["wait_time"],"sentiment":"negative","urgent_reasons":[]}

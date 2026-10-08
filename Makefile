@@ -30,7 +30,7 @@ define skip
 { mkdir -p $(STATE); echo "$(1): SKIPPED ($(2) not installed)"; echo "$(1) $(2)" >> $(SKIPPED); exit 0; }
 endef
 
-.PHONY: help setup hooks dev web-dev hash-password build check check-file fix vuln db db-down db-reset migrate migrate-down migrate-status sqlc doctor clean \
+.PHONY: help setup hooks dev web-dev seed eval tone-check hash-password build check check-file fix vuln db db-down db-reset migrate migrate-down migrate-status sqlc doctor clean \
 	go-fmt-check go-vet go-lint go-test test-integration web-format-check web-lint web-api-types web-api-types-check web-typecheck web-test web-build
 
 help: ## List targets
@@ -50,6 +50,15 @@ dev: ## Run the Go server locally (reads .env if present; needs make db)
 
 web-dev: ## Run the Vite dev server on :5173 (forwards /api to :8080)
 	cd $(WEB) && $(PNPM) run dev
+
+seed: ## Reset the demo data and tag it (reads .env; replay needs recordings, record spends budget; SEED_ARGS=-tag=false skips tagging)
+	@set -a; [ -f .env ] && . ./.env; set +a; go run ./cmd/seed $(SEED_ARGS)
+
+eval: ## Tagging evaluation on testdata/eval/reviews.jsonl (reads .env; exits 1 below 90% urgent recall)
+	@set -a; [ -f .env ] && . ./.env; set +a; go run ./cmd/eval $(EVAL_ARGS)
+
+tone-check: ## Draft 30 replies into a Markdown file to score by hand; TONE_ARGS="-report file.md" totals a scored file
+	@set -a; [ -f .env ] && . ./.env; set +a; go run ./cmd/tonecheck $(TONE_ARGS)
 
 # One read serves a terminal and a pipe: IFS= keeps leading and trailing
 # spaces, and bash applies -s and -p only when stdin is a terminal.

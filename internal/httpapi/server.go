@@ -31,6 +31,8 @@ type Deps struct {
 	Dashboard DashboardService
 	Status    StatusReader
 	Brand     Brand
+	// WebDir is the built web app (web/dist); empty serves the API only.
+	WebDir string
 }
 
 // New builds the HTTP handler. The chain, outermost first: request id, panic
@@ -60,6 +62,9 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, r, http.StatusNotFound, "not_found", "No such route.")
 	})
+	if d.WebDir != "" {
+		mux.Handle("/", webHandler(d.WebDir))
+	}
 
 	var handler http.Handler = mux
 	handler = middleware.CrossOrigin(logger, WriteError)(handler)
