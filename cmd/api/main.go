@@ -104,7 +104,7 @@ func run() error {
 		WebDir:    webDir(logger, cfg.WebDir),
 	})
 	srv := &http.Server{
-		Addr:              ":" + cfg.Port,
+		Addr:              cfg.Addr(),
 		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
