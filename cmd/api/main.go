@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 	// Embeds the IANA zone database so BRAND_TIMEZONE loads on machines and
@@ -20,10 +21,14 @@ import (
 
 	"github.com/manikorimilli/outlet-owl/internal/auth"
 	"github.com/manikorimilli/outlet-owl/internal/config"
+	"github.com/manikorimilli/outlet-owl/internal/dashboard"
+	"github.com/manikorimilli/outlet-owl/internal/digest"
 	"github.com/manikorimilli/outlet-owl/internal/gateway"
 	"github.com/manikorimilli/outlet-owl/internal/httpapi"
 	"github.com/manikorimilli/outlet-owl/internal/imports"
 	"github.com/manikorimilli/outlet-owl/internal/outlets"
+	"github.com/manikorimilli/outlet-owl/internal/replies"
+	"github.com/manikorimilli/outlet-owl/internal/reviews"
 	"github.com/manikorimilli/outlet-owl/internal/store"
 	"github.com/manikorimilli/outlet-owl/internal/tagging"
 	"github.com/manikorimilli/outlet-owl/prompts"
@@ -66,7 +71,15 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	tagger, err := newTagger(logger, st, gw, cfg.TaggingEnabled)
+	reg, err := prompts.Load()
+	if err != nil {
+		return err
+	}
+	tagger, err := newTagger(logger, st, gw, reg, cfg.TaggingEnabled)
+	if err != nil {
+		return err
+	}
+	replyPrompt, err := reg.Current("reply")
 	if err != nil {
 		return err
 	}
@@ -75,13 +88,20 @@ func run() error {
 		return fmt.Errorf("session tokens: %w", err)
 	}
 
+	reports := dashboard.NewService(st, time.Now, cfg.BrandTimezone)
 	handler := httpapi.New(httpapi.Deps{
-		Logger:  logger,
-		DB:      st,
-		Auth:    auth.NewService(st, tokens),
-		Outlets: outlets.NewService(st),
-		Imports: imports.NewService(st, tagger),
-		Brand:   httpapi.Brand{Name: cfg.BrandName, Timezone: cfg.BrandTimezone.String()},
+		Logger:    logger,
+		DB:        st,
+		Auth:      auth.NewService(st, tokens),
+		Outlets:   outlets.NewService(st),
+		Imports:   imports.NewService(st, tagger),
+		Reviews:   reviews.NewService(st),
+		Replies:   replies.NewService(st, gw, replyPrompt, logger),
+		Dashboard: reports,
+		Digests:   digest.NewService(st, reports, digest.SMTP{Addr: cfg.SMTPAddr, From: cfg.SMTPFrom}),
+		Status:    statusReader{Store: st, worker: tagger, gw: gw},
+		Brand:     httpapi.Brand{Name: cfg.BrandName, Timezone: cfg.BrandTimezone.String()},
+		WebDir:    webDir(logger, cfg.WebDir),
 	})
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
@@ -130,13 +150,30 @@ func run() error {
 	return nil
 }
 
+// webDir returns dir when it holds a built web app, else "" and a log line:
+// the API still serves, and make web-dev serves the UI in development.
+func webDir(logger *slog.Logger, dir string) string {
+	if _, err := os.Stat(filepath.Join(dir, "index.html")); err != nil {
+		logger.Info("web app not built; serving the API only (make build, or make web-dev for development)", "dir", dir)
+		return ""
+	}
+	return dir
+}
+
+// statusReader joins what GET /tagging/status reads: the counts from the
+// store, the worker's state and the gateway's credit flag.
+type statusReader struct {
+	*store.Store
+	worker *tagging.Worker
+	gw     *gateway.Gateway
+}
+
+func (s statusReader) WorkerState() string   { return s.worker.State() }
+func (s statusReader) CreditExhausted() bool { return s.gw.CreditExhausted() }
+
 // newTagger builds the tagging worker with the current tagging prompt
 // version built into the binary (Q-011).
-func newTagger(logger *slog.Logger, st *store.Store, gw *gateway.Gateway, enabled bool) (*tagging.Worker, error) {
-	reg, err := prompts.Load()
-	if err != nil {
-		return nil, err
-	}
+func newTagger(logger *slog.Logger, st *store.Store, gw *gateway.Gateway, reg *prompts.Registry, enabled bool) (*tagging.Worker, error) {
 	prompt, err := reg.Current("tagging")
 	if err != nil {
 		return nil, err

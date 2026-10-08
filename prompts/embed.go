@@ -2,10 +2,10 @@ package prompts
 
 import "embed"
 
-// files holds the prompt versions built into the binary (Q-011). reply/
-// joins with build phase 5.
+// files holds the prompt versions built into the binary (Q-011): tagging
+// (phase 3) and reply (phase 5).
 //
-//go:embed tagging
+//go:embed tagging reply
 var files embed.FS
 
 // Load parses the prompts built into the binary.

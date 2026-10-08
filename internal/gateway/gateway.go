@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sync/atomic"
 	"time"
 )
 
@@ -38,11 +39,18 @@ type Config struct {
 // settleTimeout bounds the cost-row write after an attempt.
 const settleTimeout = 5 * time.Second
 
-// Gateway is safe for concurrent use; it keeps no state between calls.
+// Gateway is safe for concurrent use. The only state it keeps between calls
+// is whether OpenRouter last refused for credit, for the status bar.
 type Gateway struct {
 	cfg    Config
 	sender *sender // nil in replay mode: replay never builds an HTTP client
+	// creditOut is set by a 402 and cleared by the next settled call; it is
+	// not persisted, so a restart clears it (phase 4 LLD section 6).
+	creditOut atomic.Bool
 }
+
+// CreditExhausted reports whether OpenRouter's last answer was a 402.
+func (g *Gateway) CreditExhausted() bool { return g.creditOut.Load() }
 
 // New checks the configuration and, outside replay mode, builds the HTTP
 // client.
@@ -134,6 +142,7 @@ func (g *Gateway) live(ctx context.Context, r Request, body []byte, maxTokens in
 					cost = reserved // no usage.cost: the reserved price stays (HLD section 6)
 				}
 				g.settle(ctx, id, p.resp.InputTokens, p.resp.OutputTokens, cost)
+				g.creditOut.Store(false)
 				p.resp.Mode = g.cfg.Mode
 				g.logCall(r, attempt, "settled", status, reserved, cost, p.resp, took)
 				return p.resp, raw, nil
@@ -150,6 +159,9 @@ func (g *Gateway) live(ctx context.Context, r Request, body []byte, maxTokens in
 			return Response{}, nil, fmt.Errorf("%w: %v", ErrModelUnavailable, sendErr)
 		}
 		retry, cerr := classify(status, raw)
+		if errors.Is(cerr, ErrProviderCreditExhausted) {
+			g.creditOut.Store(true)
+		}
 		if !retry || attempt >= len(g.cfg.Backoff) {
 			return Response{}, nil, cerr
 		}

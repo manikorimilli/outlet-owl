@@ -7,9 +7,12 @@ import (
 
 	"github.com/manikorimilli/outlet-owl/internal/auth"
 	"github.com/manikorimilli/outlet-owl/internal/connector"
+	"github.com/manikorimilli/outlet-owl/internal/digest"
 	"github.com/manikorimilli/outlet-owl/internal/imports"
 	"github.com/manikorimilli/outlet-owl/internal/middleware"
 	"github.com/manikorimilli/outlet-owl/internal/outlets"
+	"github.com/manikorimilli/outlet-owl/internal/replies"
+	"github.com/manikorimilli/outlet-owl/internal/reviews"
 )
 
 // Detail is one entry of the error envelope's details: the field and the
@@ -51,6 +54,9 @@ func writeDomainError(w http.ResponseWriter, r *http.Request, logger *slog.Logge
 	var badName *outlets.ValidationError
 	var taken *outlets.NameTakenError
 	var fileErr *connector.FileError
+	var badFilter *reviews.ValidationError
+	var conflict *replies.ConflictError
+	var badReply *replies.ValidationError
 	var bodyTooLarge *http.MaxBytesError
 	switch {
 	case errors.Is(err, errUnsupportedMediaType):
@@ -65,6 +71,34 @@ func writeDomainError(w http.ResponseWriter, r *http.Request, logger *slog.Logge
 			details[i] = Detail{Field: p.Field, Reason: p.Reason}
 		}
 		WriteErrorDetails(w, r, http.StatusBadRequest, "csv_invalid", fileErr.Message, details)
+	case errors.Is(err, digest.ErrRoleNotAllowed):
+		WriteError(w, r, http.StatusForbidden, "role_not_allowed", "Only the brand admin can generate the digest.")
+	case errors.Is(err, replies.ErrRoleNotAllowed):
+		WriteError(w, r, http.StatusForbidden, "role_not_allowed", "Only this outlet's manager can draft, edit or mark this reply.")
+	case errors.Is(err, replies.ErrNotFound):
+		WriteError(w, r, http.StatusNotFound, "not_found", "No such review among the ones you can see.")
+	case errors.Is(err, replies.ErrBudgetExhausted):
+		WriteError(w, r, http.StatusServiceUnavailable, "budget_exhausted", "Drafting is unavailable. The model budget is used up. Write the reply yourself.")
+	case errors.Is(err, replies.ErrModelUnavailable):
+		WriteError(w, r, http.StatusServiceUnavailable, "model_unavailable", "Drafting is unavailable right now. Write the reply yourself or try again later.")
+	case errors.As(err, &conflict):
+		WriteError(w, r, http.StatusConflict, conflict.Code, conflictMessages[conflict.Code])
+	case errors.As(err, &badReply):
+		msg := "Write the reply before saving."
+		if badReply.Reason == "too_long" {
+			msg = "Use at most 5,000 characters for the reply."
+		}
+		WriteErrorDetails(w, r, http.StatusUnprocessableEntity, "validation_failed", msg,
+			[]Detail{{Field: "reply_text", Reason: badReply.Reason}})
+	case errors.Is(err, reviews.ErrNotFound):
+		WriteError(w, r, http.StatusNotFound, "not_found", "No such outlet among the ones you can see.")
+	case errors.As(err, &badFilter):
+		msg := "That theme is not in the theme list."
+		if badFilter.Field == "q" {
+			msg = "Use at most 200 characters in the search."
+		}
+		WriteErrorDetails(w, r, http.StatusUnprocessableEntity, "validation_failed", msg,
+			[]Detail{{Field: badFilter.Field, Reason: badFilter.Reason}})
 	case errors.Is(err, imports.ErrRoleNotAllowed):
 		WriteError(w, r, http.StatusForbidden, "role_not_allowed", "Only the brand admin can import reviews.")
 	case errors.As(err, &malformed):
@@ -98,4 +132,10 @@ func outletNameMessage(reason string) string {
 		return "Use at most 200 characters for the outlet name."
 	}
 	return "Enter the outlet name."
+}
+
+var conflictMessages = map[string]string{
+	"reply_changed":     "This reply changed since you opened it. Reload to see the newer text.",
+	"draft_in_progress": "The model is still drafting this reply. Wait a moment and reload.",
+	"already_replied":   "This reply is approved and its text can no longer change.",
 }

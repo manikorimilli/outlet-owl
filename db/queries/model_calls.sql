@@ -42,3 +42,8 @@ FROM (
 ) d
 WHERE d.diff > 0
 RETURNING settled_cost_usd::text AS added_usd;
+
+-- name: BudgetCents :one
+-- The running total in cents, rounded up, for the status bar (phase 4).
+SELECT ceil(coalesce(sum(coalesce(settled_cost_usd, reserved_cost_usd)), 0) * 100)::bigint AS cents
+FROM budget.model_calls;

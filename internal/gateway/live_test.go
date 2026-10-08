@@ -212,3 +212,20 @@ func TestComplete_DatabaseFaultIsLoggedAsAnErrorNotARefusal(t *testing.T) {
 		t.Fatalf("log = %s, want outcome error, not refused", out)
 	}
 }
+
+// Phase 4 LLD section 6: a 402 sets the credit flag the status bar reads;
+// the next settled call clears it.
+func TestCreditExhausted_SetBy402ClearedBySettle(t *testing.T) {
+	o := newOpenRouter(t, answer{status: 402, body: `{"error":{"code":402}}`}, answer{status: 200, body: okBody})
+	g, _ := liveGateway(t, Live, o, &fakeStore{})
+	if g.CreditExhausted() {
+		t.Fatal("a new gateway must not report exhausted credit")
+	}
+	_, _ = g.Complete(context.Background(), request())
+	if !g.CreditExhausted() {
+		t.Fatal("a 402 must set the flag")
+	}
+	if _, err := g.Complete(context.Background(), request()); err != nil || g.CreditExhausted() {
+		t.Fatalf("a settled call must clear the flag: %v", err)
+	}
+}

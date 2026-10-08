@@ -9,7 +9,9 @@ describe("the routes", () => {
 
     renderApp("/outlets");
 
-    expect(await screen.findByRole("heading", { name: "Overview" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Overview: Indiranagar" }),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("location").textContent).toBe("/");
     expect(screen.queryByRole("heading", { name: "Outlets" })).not.toBeInTheDocument();
   });
@@ -19,7 +21,9 @@ describe("the routes", () => {
 
     renderApp("/import");
 
-    expect(await screen.findByRole("heading", { name: "Overview" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Overview: Indiranagar" }),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("location").textContent).toBe("/");
   });
 
@@ -36,7 +40,9 @@ describe("the routes", () => {
 
     renderApp("/");
 
-    expect(await screen.findByText("Your outlet: Indiranagar")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Overview: Indiranagar" }),
+    ).toBeInTheDocument();
   });
 
   it("an unknown path goes to /", async () => {

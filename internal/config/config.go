@@ -41,6 +41,12 @@ type Config struct {
 	// TaggingEnabled is the operator switch for the tagging worker; false
 	// keeps it paused (HLD section 12).
 	TaggingEnabled bool
+	// SMTPAddr is the local mail catcher the digest is sent to (MailHog);
+	// SMTPFrom is its sender address.
+	SMTPAddr string
+	SMTPFrom string
+	// WebDir is the built web app the server serves (ADR-0002).
+	WebDir string
 }
 
 // Load reads and validates the environment.
@@ -101,6 +107,9 @@ func Load() (Config, error) {
 	} else {
 		c.TaggingEnabled = on
 	}
+	c.SMTPAddr = envOr("SMTP_ADDR", "localhost:1025")
+	c.SMTPFrom = envOr("SMTP_FROM", "digest@outletowl.local")
+	c.WebDir = envOr("WEB_DIST", "web/dist")
 	if len(problems) > 0 {
 		return Config{}, fmt.Errorf("config: %s", strings.Join(problems, "; "))
 	}
