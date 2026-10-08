@@ -25,6 +25,7 @@ import (
 	"github.com/manikorimilli/outlet-owl/internal/httpapi"
 	"github.com/manikorimilli/outlet-owl/internal/imports"
 	"github.com/manikorimilli/outlet-owl/internal/outlets"
+	"github.com/manikorimilli/outlet-owl/internal/replies"
 	"github.com/manikorimilli/outlet-owl/internal/reviews"
 	"github.com/manikorimilli/outlet-owl/internal/store"
 	"github.com/manikorimilli/outlet-owl/internal/tagging"
@@ -68,7 +69,15 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	tagger, err := newTagger(logger, st, gw, cfg.TaggingEnabled)
+	reg, err := prompts.Load()
+	if err != nil {
+		return err
+	}
+	tagger, err := newTagger(logger, st, gw, reg, cfg.TaggingEnabled)
+	if err != nil {
+		return err
+	}
+	replyPrompt, err := reg.Current("reply")
 	if err != nil {
 		return err
 	}
@@ -84,6 +93,7 @@ func run() error {
 		Outlets:   outlets.NewService(st),
 		Imports:   imports.NewService(st, tagger),
 		Reviews:   reviews.NewService(st),
+		Replies:   replies.NewService(st, gw, replyPrompt, logger),
 		Dashboard: dashboard.NewService(st, time.Now, cfg.BrandTimezone),
 		Status:    statusReader{Store: st, worker: tagger, gw: gw},
 		Brand:     httpapi.Brand{Name: cfg.BrandName, Timezone: cfg.BrandTimezone.String()},
@@ -148,11 +158,7 @@ func (s statusReader) CreditExhausted() bool { return s.gw.CreditExhausted() }
 
 // newTagger builds the tagging worker with the current tagging prompt
 // version built into the binary (Q-011).
-func newTagger(logger *slog.Logger, st *store.Store, gw *gateway.Gateway, enabled bool) (*tagging.Worker, error) {
-	reg, err := prompts.Load()
-	if err != nil {
-		return nil, err
-	}
+func newTagger(logger *slog.Logger, st *store.Store, gw *gateway.Gateway, reg *prompts.Registry, enabled bool) (*tagging.Worker, error) {
 	prompt, err := reg.Current("tagging")
 	if err != nil {
 		return nil, err

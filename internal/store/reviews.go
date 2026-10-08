@@ -34,7 +34,7 @@ func (s *Store) ListReviews(ctx context.Context, scope auth.Scope, f reviews.Fil
 	p := ListReviewsParams{
 		AllOutlets: scope.All, ScopeOutletID: scope.OutletID, OutletID: f.OutletID,
 		Theme: optString(f.Theme), Sentiment: optString(f.Sentiment), IsUrgent: f.Urgent,
-		DateFrom: optDate(f.From), DateTo: optDate(f.To), RowLimit: int32(limit),
+		DateFrom: optDate(f.From), DateTo: optDate(f.To), RowLimit: int32(limit), ReplyStatus: optString(f.ReplyStatus),
 	}
 	if f.Q != "" {
 		q := reviews.LikePattern(f.Q)
@@ -53,7 +53,7 @@ func (s *Store) ListReviews(ctx context.Context, scope auth.Scope, f reviews.Fil
 		out[i] = reviews.Review{
 			ID: r.ID, OutletID: r.OutletID, OutletName: r.OutletName, Source: r.Source,
 			ReviewDate: r.ReviewDate.Time, Rating: int(r.Rating), Text: r.ReviewText, ReviewerName: r.ReviewerName,
-			ReplyStatus: "none",
+			ReplyStatus: r.ReplyStatus,
 		}
 		if r.Tagged {
 			out[i].Tags = &reviews.Tags{Themes: r.Themes, Sentiment: r.Sentiment, IsUrgent: r.IsUrgent,
@@ -68,7 +68,7 @@ func (s *Store) CountReviews(ctx context.Context, scope auth.Scope, f reviews.Fi
 	p := CountReviewsParams{
 		AllOutlets: scope.All, ScopeOutletID: scope.OutletID, OutletID: f.OutletID,
 		Theme: optString(f.Theme), Sentiment: optString(f.Sentiment), IsUrgent: f.Urgent,
-		DateFrom: optDate(f.From), DateTo: optDate(f.To),
+		DateFrom: optDate(f.From), DateTo: optDate(f.To), ReplyStatus: optString(f.ReplyStatus),
 	}
 	if f.Q != "" {
 		q := reviews.LikePattern(f.Q)

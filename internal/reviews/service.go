@@ -46,7 +46,7 @@ type Review struct {
 	ReviewerName string
 	// Tags is nil while the review is untagged.
 	Tags *Tags
-	// ReplyStatus is none until the replies table arrives in phase 5.
+	// ReplyStatus is none, drafting, draft or replied.
 	ReplyStatus string
 }
 
@@ -104,11 +104,6 @@ func (s *Service) List(ctx context.Context, user auth.User, f Filter) (Page, err
 	}
 	if f.Limit == 0 {
 		f.Limit = DefaultLimit
-	}
-	// Until phase 5 adds replies, every review is "none": a filter for a
-	// draft or a replied review matches nothing.
-	if f.ReplyStatus == "draft" || f.ReplyStatus == "replied" {
-		return Page{Reviews: []Review{}}, nil
 	}
 	rows, err := s.store.ListReviews(ctx, scope, f, f.Limit+1)
 	if err != nil {

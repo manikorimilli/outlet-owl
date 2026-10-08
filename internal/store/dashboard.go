@@ -28,7 +28,7 @@ func (s *Store) WeeklyOutletStats(ctx context.Context, scope auth.Scope, from, t
 	for i, r := range rows {
 		out[i] = dashboard.WeekRow{OutletID: r.OutletID, WeekStart: r.WeekStart.Time, ReviewCount: int(r.ReviewCount),
 			AvgRating: r.AverageRating, Positive: int(r.Positive), Neutral: int(r.Neutral), Negative: int(r.Negative),
-			Untagged: int(r.Untagged)}
+			Untagged: int(r.Untagged), Replied: int(r.Replied)}
 	}
 	return out, nil
 }

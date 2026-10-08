@@ -15,6 +15,7 @@ const countReviews = `-- name: CountReviews :one
 SELECT count(*)::integer
 FROM reviews r
 LEFT JOIN review_tags t ON t.review_id = r.id
+LEFT JOIN replies rp ON rp.review_id = r.id
 WHERE ($1::boolean OR r.outlet_id = $2::bigint)
   AND ($3::bigint IS NULL OR r.outlet_id = $3::bigint)
   AND ($4::text IS NULL OR r.review_text ILIKE $4::text ESCAPE '\' OR r.reviewer_name ILIKE $4::text ESCAPE '\')
@@ -23,6 +24,9 @@ WHERE ($1::boolean OR r.outlet_id = $2::bigint)
   AND ($7::boolean IS NULL OR t.is_urgent = $7::boolean)
   AND ($8::date IS NULL OR r.review_date >= $8::date)
   AND ($9::date IS NULL OR r.review_date <= $9::date)
+  AND ($10::text IS NULL
+       OR ($10::text = 'none' AND (rp.review_id IS NULL OR rp.status = 'drafting'))
+       OR rp.status::text = $10::text)
 `
 
 type CountReviewsParams struct {
@@ -35,6 +39,7 @@ type CountReviewsParams struct {
 	IsUrgent      *bool       `json:"is_urgent"`
 	DateFrom      pgtype.Date `json:"date_from"`
 	DateTo        pgtype.Date `json:"date_to"`
+	ReplyStatus   *string     `json:"reply_status"`
 }
 
 func (q *Queries) CountReviews(ctx context.Context, arg CountReviewsParams) (int32, error) {
@@ -48,6 +53,7 @@ func (q *Queries) CountReviews(ctx context.Context, arg CountReviewsParams) (int
 		arg.IsUrgent,
 		arg.DateFrom,
 		arg.DateTo,
+		arg.ReplyStatus,
 	)
 	var column_1 int32
 	err := row.Scan(&column_1)
@@ -62,10 +68,12 @@ SELECT r.id, r.outlet_id, o.name AS outlet_name, r.source, r.review_date, r.rati
        coalesce(t.sentiment::text, '')::text AS sentiment,
        coalesce(t.is_urgent, false) AS is_urgent,
        coalesce(t.urgent_reasons, '{}')::text[] AS urgent_reasons,
-       coalesce(t.prompt_version, 0)::integer AS prompt_version
+       coalesce(t.prompt_version, 0)::integer AS prompt_version,
+       coalesce(rp.status::text, 'none')::text AS reply_status
 FROM reviews r
 JOIN outlets o ON o.id = r.outlet_id
 LEFT JOIN review_tags t ON t.review_id = r.id
+LEFT JOIN replies rp ON rp.review_id = r.id
 WHERE ($1::boolean OR r.outlet_id = $2::bigint)
   AND ($3::bigint IS NULL OR r.outlet_id = $3::bigint)
   AND ($4::text IS NULL OR r.review_text ILIKE $4::text ESCAPE '\' OR r.reviewer_name ILIKE $4::text ESCAPE '\')
@@ -74,9 +82,12 @@ WHERE ($1::boolean OR r.outlet_id = $2::bigint)
   AND ($7::boolean IS NULL OR t.is_urgent = $7::boolean)
   AND ($8::date IS NULL OR r.review_date >= $8::date)
   AND ($9::date IS NULL OR r.review_date <= $9::date)
-  AND ($10::date IS NULL OR (r.review_date, r.id) < ($10::date, $11::bigint))
+  AND ($10::text IS NULL
+       OR ($10::text = 'none' AND (rp.review_id IS NULL OR rp.status = 'drafting'))
+       OR rp.status::text = $10::text)
+  AND ($11::date IS NULL OR (r.review_date, r.id) < ($11::date, $12::bigint))
 ORDER BY r.review_date DESC, r.id DESC
-LIMIT $12
+LIMIT $13
 `
 
 type ListReviewsParams struct {
@@ -89,6 +100,7 @@ type ListReviewsParams struct {
 	IsUrgent      *bool       `json:"is_urgent"`
 	DateFrom      pgtype.Date `json:"date_from"`
 	DateTo        pgtype.Date `json:"date_to"`
+	ReplyStatus   *string     `json:"reply_status"`
 	AfterDate     pgtype.Date `json:"after_date"`
 	AfterID       *int64      `json:"after_id"`
 	RowLimit      int32       `json:"row_limit"`
@@ -109,6 +121,7 @@ type ListReviewsRow struct {
 	IsUrgent      bool        `json:"is_urgent"`
 	UrgentReasons []string    `json:"urgent_reasons"`
 	PromptVersion int32       `json:"prompt_version"`
+	ReplyStatus   string      `json:"reply_status"`
 }
 
 // Reviews: the searchable list (phase 4 LLD section 5). Every statement is
@@ -125,6 +138,7 @@ func (q *Queries) ListReviews(ctx context.Context, arg ListReviewsParams) ([]Lis
 		arg.IsUrgent,
 		arg.DateFrom,
 		arg.DateTo,
+		arg.ReplyStatus,
 		arg.AfterDate,
 		arg.AfterID,
 		arg.RowLimit,
@@ -151,6 +165,7 @@ func (q *Queries) ListReviews(ctx context.Context, arg ListReviewsParams) ([]Lis
 			&i.IsUrgent,
 			&i.UrgentReasons,
 			&i.PromptVersion,
+			&i.ReplyStatus,
 		); err != nil {
 			return nil, err
 		}

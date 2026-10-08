@@ -9,10 +9,12 @@ SELECT r.id, r.outlet_id, o.name AS outlet_name, r.source, r.review_date, r.rati
        coalesce(t.sentiment::text, '')::text AS sentiment,
        coalesce(t.is_urgent, false) AS is_urgent,
        coalesce(t.urgent_reasons, '{}')::text[] AS urgent_reasons,
-       coalesce(t.prompt_version, 0)::integer AS prompt_version
+       coalesce(t.prompt_version, 0)::integer AS prompt_version,
+       coalesce(rp.status::text, 'none')::text AS reply_status
 FROM reviews r
 JOIN outlets o ON o.id = r.outlet_id
 LEFT JOIN review_tags t ON t.review_id = r.id
+LEFT JOIN replies rp ON rp.review_id = r.id
 WHERE (sqlc.arg(all_outlets)::boolean OR r.outlet_id = sqlc.arg(scope_outlet_id)::bigint)
   AND (sqlc.narg(outlet_id)::bigint IS NULL OR r.outlet_id = sqlc.narg(outlet_id)::bigint)
   AND (sqlc.narg(q)::text IS NULL OR r.review_text ILIKE sqlc.narg(q)::text ESCAPE '\' OR r.reviewer_name ILIKE sqlc.narg(q)::text ESCAPE '\')
@@ -21,6 +23,9 @@ WHERE (sqlc.arg(all_outlets)::boolean OR r.outlet_id = sqlc.arg(scope_outlet_id)
   AND (sqlc.narg(is_urgent)::boolean IS NULL OR t.is_urgent = sqlc.narg(is_urgent)::boolean)
   AND (sqlc.narg(date_from)::date IS NULL OR r.review_date >= sqlc.narg(date_from)::date)
   AND (sqlc.narg(date_to)::date IS NULL OR r.review_date <= sqlc.narg(date_to)::date)
+  AND (sqlc.narg(reply_status)::text IS NULL
+       OR (sqlc.narg(reply_status)::text = 'none' AND (rp.review_id IS NULL OR rp.status = 'drafting'))
+       OR rp.status::text = sqlc.narg(reply_status)::text)
   AND (sqlc.narg(after_date)::date IS NULL OR (r.review_date, r.id) < (sqlc.narg(after_date)::date, sqlc.narg(after_id)::bigint))
 ORDER BY r.review_date DESC, r.id DESC
 LIMIT sqlc.arg(row_limit);
@@ -29,6 +34,7 @@ LIMIT sqlc.arg(row_limit);
 SELECT count(*)::integer
 FROM reviews r
 LEFT JOIN review_tags t ON t.review_id = r.id
+LEFT JOIN replies rp ON rp.review_id = r.id
 WHERE (sqlc.arg(all_outlets)::boolean OR r.outlet_id = sqlc.arg(scope_outlet_id)::bigint)
   AND (sqlc.narg(outlet_id)::bigint IS NULL OR r.outlet_id = sqlc.narg(outlet_id)::bigint)
   AND (sqlc.narg(q)::text IS NULL OR r.review_text ILIKE sqlc.narg(q)::text ESCAPE '\' OR r.reviewer_name ILIKE sqlc.narg(q)::text ESCAPE '\')
@@ -36,4 +42,7 @@ WHERE (sqlc.arg(all_outlets)::boolean OR r.outlet_id = sqlc.arg(scope_outlet_id)
   AND (sqlc.narg(sentiment)::text IS NULL OR t.sentiment::text = sqlc.narg(sentiment)::text)
   AND (sqlc.narg(is_urgent)::boolean IS NULL OR t.is_urgent = sqlc.narg(is_urgent)::boolean)
   AND (sqlc.narg(date_from)::date IS NULL OR r.review_date >= sqlc.narg(date_from)::date)
-  AND (sqlc.narg(date_to)::date IS NULL OR r.review_date <= sqlc.narg(date_to)::date);
+  AND (sqlc.narg(date_to)::date IS NULL OR r.review_date <= sqlc.narg(date_to)::date)
+  AND (sqlc.narg(reply_status)::text IS NULL
+       OR (sqlc.narg(reply_status)::text = 'none' AND (rp.review_id IS NULL OR rp.status = 'drafting'))
+       OR rp.status::text = sqlc.narg(reply_status)::text);

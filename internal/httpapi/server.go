@@ -25,6 +25,7 @@ type Deps struct {
 	Outlets OutletService
 	Imports ImportService
 	Reviews ReviewService
+	Replies ReplyService
 	// Dashboard builds the weekly reports; Status reads the tagging status.
 	Dashboard DashboardService
 	Status    StatusReader
@@ -46,6 +47,10 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("POST /api/v1/imports", createImport(d))
 	mux.HandleFunc("GET /api/v1/reviews", listReviews(d))
 	mux.HandleFunc("GET /api/v1/themes", listThemes(d))
+	mux.HandleFunc("GET /api/v1/reviews/{review_id}", getReview(d))
+	mux.HandleFunc("POST /api/v1/reviews/{review_id}/draft", createReplyDraft(d))
+	mux.HandleFunc("PUT /api/v1/reviews/{review_id}/reply", replyWrite(d, false))
+	mux.HandleFunc("POST /api/v1/reviews/{review_id}/replied", replyWrite(d, true))
 	mux.HandleFunc("GET /api/v1/dashboard/trends", getTrends(d))
 	mux.HandleFunc("GET /api/v1/dashboard/heatmap", getHeatmap(d))
 	mux.HandleFunc("GET /api/v1/dashboard/movers", getMovers(d))

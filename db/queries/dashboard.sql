@@ -10,9 +10,11 @@ SELECT r.outlet_id,
        (count(*) FILTER (WHERE t.sentiment = 'positive'))::integer AS positive,
        (count(*) FILTER (WHERE t.sentiment = 'neutral'))::integer AS neutral,
        (count(*) FILTER (WHERE t.sentiment = 'negative'))::integer AS negative,
-       (count(*) FILTER (WHERE t.review_id IS NULL))::integer AS untagged
+       (count(*) FILTER (WHERE t.review_id IS NULL))::integer AS untagged,
+       (count(*) FILTER (WHERE rp.status = 'replied'))::integer AS replied
 FROM reviews r
 LEFT JOIN review_tags t ON t.review_id = r.id
+LEFT JOIN replies rp ON rp.review_id = r.id
 WHERE (sqlc.arg(all_outlets)::boolean OR r.outlet_id = sqlc.arg(scope_outlet_id)::bigint)
   AND r.review_date BETWEEN sqlc.arg(date_from)::date AND sqlc.arg(date_to)::date
 GROUP BY r.outlet_id, week_start;

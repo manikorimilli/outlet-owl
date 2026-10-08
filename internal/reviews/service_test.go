@@ -49,14 +49,6 @@ func TestList_ManagerOtherOutletIs404(t *testing.T) {
 	}
 }
 
-func TestList_ReplyStatusBeforePhase5(t *testing.T) {
-	st := &memStore{rows: []Review{{ID: 1}}}
-	p, err := NewService(st).List(context.Background(), admin, Filter{ReplyStatus: "replied"})
-	if err != nil || len(p.Reviews) != 0 || p.Total != 0 || st.calls != 0 {
-		t.Fatalf("page %+v, %v; want nothing", p, err)
-	}
-}
-
 func TestList_PagesWithACursor(t *testing.T) {
 	day := time.Date(2026, 10, 3, 0, 0, 0, 0, time.UTC)
 	st := &memStore{rows: []Review{{ID: 9, ReviewDate: day}, {ID: 8, ReviewDate: day}, {ID: 7, ReviewDate: day}}}

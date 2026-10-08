@@ -130,9 +130,11 @@ SELECT r.outlet_id,
        (count(*) FILTER (WHERE t.sentiment = 'positive'))::integer AS positive,
        (count(*) FILTER (WHERE t.sentiment = 'neutral'))::integer AS neutral,
        (count(*) FILTER (WHERE t.sentiment = 'negative'))::integer AS negative,
-       (count(*) FILTER (WHERE t.review_id IS NULL))::integer AS untagged
+       (count(*) FILTER (WHERE t.review_id IS NULL))::integer AS untagged,
+       (count(*) FILTER (WHERE rp.status = 'replied'))::integer AS replied
 FROM reviews r
 LEFT JOIN review_tags t ON t.review_id = r.id
+LEFT JOIN replies rp ON rp.review_id = r.id
 WHERE ($1::boolean OR r.outlet_id = $2::bigint)
   AND r.review_date BETWEEN $3::date AND $4::date
 GROUP BY r.outlet_id, week_start
@@ -154,6 +156,7 @@ type WeeklyOutletStatsRow struct {
 	Neutral       int32       `json:"neutral"`
 	Negative      int32       `json:"negative"`
 	Untagged      int32       `json:"untagged"`
+	Replied       int32       `json:"replied"`
 }
 
 // Dashboard reports (phase 4 LLD section 5). Every statement is scoped by
@@ -182,6 +185,7 @@ func (q *Queries) WeeklyOutletStats(ctx context.Context, arg WeeklyOutletStatsPa
 			&i.Neutral,
 			&i.Negative,
 			&i.Untagged,
+			&i.Replied,
 		); err != nil {
 			return nil, err
 		}

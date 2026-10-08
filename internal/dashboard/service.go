@@ -29,6 +29,7 @@ type WeekRow struct {
 	Neutral     int
 	Negative    int
 	Untagged    int
+	Replied     int
 }
 
 // ThemeRow is the number of negative reviews of one outlet, week and theme.
@@ -68,7 +69,7 @@ type TrendWeek struct {
 	Neutral     int
 	Negative    int
 	Untagged    int
-	Replied     int // 0 until phase 5 adds replies
+	Replied     int
 }
 
 // OutletTrend is one outlet's 12 weeks.
@@ -113,7 +114,7 @@ func (s *Service) Trends(ctx context.Context, user auth.User) (Trends, error) {
 			if r, ok := byKey[key{o.ID, w.Start}]; ok {
 				avg := r.AvgRating
 				tw = TrendWeek{WeekStart: w.Start, ReviewCount: r.ReviewCount, AvgRating: &avg,
-					Positive: r.Positive, Neutral: r.Neutral, Negative: r.Negative, Untagged: r.Untagged}
+					Positive: r.Positive, Neutral: r.Neutral, Negative: r.Negative, Untagged: r.Untagged, Replied: r.Replied}
 			}
 			ot.Weeks[i] = tw
 		}
