@@ -53,12 +53,20 @@ function problemFor(err: ApiError): Problem {
 
 // SignInPage is S-01: the brand is not named here (it is shown in the top bar
 // after sign-in, from GET /me), a decision recorded in the web LLD.
+// demoAccount fills the form with the seeded brand admin under the Vite dev
+// server only (make web-dev). Tests run in "test" mode and builds in
+// "production", so no bundle the Go binary serves ever carries it.
+const demoAccount =
+  import.meta.env.MODE === "development"
+    ? { email: "ritika.rao@example.in", password: "outletowl-demo" }
+    : null;
+
 export function SignInPage() {
   const { session, signedIn } = useSession();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState(demoAccount?.email ?? "");
+  const [password, setPassword] = useState(demoAccount?.password ?? "");
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<Problem>({ kind: "none" });
   const id = useId();

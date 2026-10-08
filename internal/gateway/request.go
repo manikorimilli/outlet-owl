@@ -7,9 +7,9 @@ import (
 	"github.com/manikorimilli/outlet-owl/prompts"
 )
 
-// Model is the one model every call uses: Claude Haiku 4.5 under OpenRouter's
-// identifier, with no fallback (Q-016, AC-US-02-001-7). Checked against
-// OpenRouter's model list before the first live call (phase 2 LLD section 10).
+// Model is the default model every call uses: Claude Haiku 4.5 under
+// OpenRouter's identifier, with no fallback (Q-016, AC-US-02-001-7). MODEL_ID
+// replaces it for every call (ADR-0009); there is still one model per run.
 const Model = "anthropic/claude-haiku-4.5"
 
 // MaxTokensCap is the most any request asks for (REQ-032).
@@ -97,6 +97,14 @@ type chatBody struct {
 	Messages    []message `json:"messages"`
 	MaxTokens   int       `json:"max_tokens"`
 	Temperature *float64  `json:"temperature,omitempty"`
+	Reasoning   reasoning `json:"reasoning"`
+}
+
+// reasoning is always sent off: max_tokens (1000, REQ-032) covers reasoning
+// and answer together, and a reasoning model otherwise spends it all
+// thinking and returns an empty, cut-off answer (ADR-0009).
+type reasoning struct {
+	Enabled bool `json:"enabled"`
 }
 
 // clampMaxTokens caps what a caller asks for at 1000; zero means 1000
@@ -108,17 +116,18 @@ func clampMaxTokens(n int) int {
 	return n
 }
 
-// buildBody returns the request body and the max_tokens it carries.
-func buildBody(r Request) ([]byte, int, error) {
+// buildBody returns the request body for model and the max_tokens it carries.
+func buildBody(r Request, model string) ([]byte, int, error) {
 	maxTokens := clampMaxTokens(r.Prompt.MaxTokens)
 	body, err := json.Marshal(chatBody{
-		Model: Model,
+		Model: model,
 		Messages: []message{
 			{Role: "system", Content: r.Prompt.Text},
 			{Role: "user", Content: r.User},
 		},
 		MaxTokens:   maxTokens,
 		Temperature: r.Prompt.Temperature,
+		Reasoning:   reasoning{Enabled: false},
 	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("gateway: build the request body: %w", err)

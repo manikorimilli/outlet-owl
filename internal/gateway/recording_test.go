@@ -40,7 +40,7 @@ func TestReplay_MissingRecordingNamesItsKeyAndPath(t *testing.T) {
 	if !errors.As(err, &missing) || !errors.Is(err, ErrRecordingMissing) {
 		t.Fatalf("err = %v, want a RecordingMissingError (AC-US-02-003-2)", err)
 	}
-	body, _, _ := buildBody(request())
+	body, _, _ := buildBody(request(), Model)
 	if missing.Key != recordingKey(body) || !strings.Contains(err.Error(), missing.Path) || !strings.Contains(missing.Path, "drafting") {
 		t.Fatalf("err = %v, want the key and the path under drafting/", err)
 	}
@@ -92,10 +92,10 @@ func TestRecord_FailedCallWritesNoFile(t *testing.T) {
 }
 
 func TestRecordingKey_ChangesWithThePromptVersion(t *testing.T) {
-	a, _, _ := buildBody(request())
+	a, _, _ := buildBody(request(), Model)
 	r := request()
 	r.Prompt.Text = "Reply in the brand's tone. Keep it short."
-	b, _, _ := buildBody(r)
+	b, _, _ := buildBody(r, Model)
 
 	if recordingKey(a) == recordingKey(b) || recordingKey(a) != recordingKey(append([]byte{}, a...)) {
 		t.Fatal("the key must follow the exact request body")

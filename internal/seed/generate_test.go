@@ -57,3 +57,28 @@ func TestGenerate_Deterministic(t *testing.T) {
 		}
 	}
 }
+
+// A trial set keeps the shape: the asked-for count, every outlet and week,
+// and the spike still at least three times the weekly average.
+func TestGenerateN_SmallerSetKeepsTheSpike(t *testing.T) {
+	rs := GenerateN(monday, 500)
+	if len(rs) != 500 {
+		t.Fatalf("reviews = %d, want 500", len(rs))
+	}
+	waitNow, waitBefore := 0, 0
+	for _, r := range rs {
+		if r.Outlet == SpikeOutlet && (slices.Contains(waits, r.Text) || strings.Contains(r.Text, "Waited 40 minutes") || strings.Contains(r.Text, "Bahut wait")) {
+			if r.Date.Before(monday) {
+				waitBefore++
+			} else {
+				waitNow++
+			}
+		}
+	}
+	if avg := float64(waitBefore) / float64(Weeks-1); waitNow < SpikeExtra || float64(waitNow) < 3*avg {
+		t.Fatalf("spike week has %d wait reviews against a weekly average of %.1f", waitNow, avg)
+	}
+	if got := len(GenerateN(monday, MinTotal)); got != MinTotal {
+		t.Fatalf("minimum set = %d, want %d", got, MinTotal)
+	}
+}

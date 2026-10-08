@@ -74,10 +74,13 @@ func TestPassThroughReplayGateway(t *testing.T) {
 		Messages  []message `json:"messages"`
 		MaxTokens int       `json:"max_tokens"`
 		Temp      *float64  `json:"temperature,omitempty"`
-	}{gateway.Model, []message{
+		Reasoning struct {
+			Enabled bool `json:"enabled"`
+		} `json:"reasoning"`
+	}{Model: gateway.Model, Messages: []message{
 		{Role: "system", Content: prompt.Text},
 		{Role: "user", Content: tagging.Message([]tagging.Review{{ID: ids[0], Text: reviews[0].Text}, {ID: ids[1], Text: reviews[1].Text}, {ID: ids[2], Text: reviews[2].Text}})},
-	}, prompt.MaxTokens, prompt.Temperature})
+	}, MaxTokens: prompt.MaxTokens, Temp: prompt.Temperature})
 	sum := sha256.Sum256(body)
 	if hex.EncodeToString(sum[:]) != missing.Key {
 		t.Fatalf("the test's request body differs from the gateway's: key %s, want %s", hex.EncodeToString(sum[:]), missing.Key)

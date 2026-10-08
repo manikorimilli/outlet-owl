@@ -216,3 +216,16 @@ func TestLoad_RejectsAnUnknownMode(t *testing.T) {
 		t.Fatalf("err = %v, want the mode refused", err)
 	}
 }
+
+func TestLoad_ModelID(t *testing.T) {
+	setValidEnv(t)
+	t.Setenv("MODEL_ID", "  apodex/apodex-1.1-mini:free ")
+	got, err := Load()
+	if err != nil || got.ModelID != "apodex/apodex-1.1-mini:free" {
+		t.Fatalf("ModelID = %q, %v", got.ModelID, err)
+	}
+	t.Setenv("MODEL_ID", "")
+	if got, _ := Load(); got.ModelID != "" {
+		t.Fatalf("unset ModelID = %q, want empty (the gateway default)", got.ModelID)
+	}
+}

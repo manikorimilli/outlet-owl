@@ -23,7 +23,9 @@ type Store interface {
 // Config sets up a gateway. AttemptTimeout, Backoff and BaseURL default to
 // the HLD's numbers and OpenRouter; tests shorten them.
 type Config struct {
-	Mode          Mode
+	Mode Mode
+	// Model is the OpenRouter model id; empty means Model (ADR-0009).
+	Model         string
 	APIKey        string
 	BaseURL       string
 	RecordingsDir string
@@ -67,6 +69,9 @@ func New(cfg Config) (*Gateway, error) {
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = DefaultBaseURL
 	}
+	if cfg.Model == "" {
+		cfg.Model = Model
+	}
 	if cfg.RecordingsDir == "" {
 		cfg.RecordingsDir = "testdata/recordings"
 	}
@@ -93,11 +98,14 @@ func (g *Gateway) Mode() Mode { return g.cfg.Mode }
 // Complete makes one model call. In live and record mode it reserves the
 // worst-case price, sends, and settles or fails the cost row of every
 // attempt; in replay mode it answers from a recording and writes no row.
+// ModelID is the model every call of this gateway uses.
+func (g *Gateway) ModelID() string { return g.cfg.Model }
+
 func (g *Gateway) Complete(ctx context.Context, r Request) (Response, error) {
 	if !r.Purpose.valid() {
 		return Response{}, fmt.Errorf("gateway: unknown purpose %q", r.Purpose)
 	}
-	body, maxTokens, err := buildBody(r)
+	body, maxTokens, err := buildBody(r, g.cfg.Model)
 	if err != nil {
 		return Response{}, err
 	}
@@ -121,7 +129,7 @@ func (g *Gateway) Complete(ctx context.Context, r Request) (Response, error) {
 func (g *Gateway) live(ctx context.Context, r Request, body []byte, maxTokens int) (Response, []byte, error) {
 	reserved := worstCaseUSD(len(body), maxTokens)
 	for attempt := 0; ; attempt++ {
-		id, err := g.cfg.Store.ReserveModelCall(ctx, string(r.Purpose), Model, r.Prompt.Number, reserved, LimitUSD)
+		id, err := g.cfg.Store.ReserveModelCall(ctx, string(r.Purpose), g.cfg.Model, r.Prompt.Number, reserved, LimitUSD)
 		if err != nil {
 			// "refused" is the USD 8 stop only; a database fault is an error.
 			outcome := "refused"
