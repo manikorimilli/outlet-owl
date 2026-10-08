@@ -315,3 +315,34 @@ func TestWorker_RecoversAPanic(t *testing.T) {
 		}
 	})
 }
+
+func TestWorker_State(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		release := make(chan struct{})
+		s := newMemStore(1)
+		m := &scriptModel{answer: func(_ int, ids []int64) (string, error) {
+			<-release
+			return allValid(ids), nil
+		}}
+		w := newWorker(s, m)
+		if w.State() != "idle" {
+			t.Fatalf("state = %s, want idle", w.State())
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		go w.Run(ctx)
+		w.Signal()
+		synctest.Wait()
+		if w.State() != "running" {
+			t.Fatalf("state during a pass = %s, want running", w.State())
+		}
+		close(release)
+		synctest.Wait()
+		if w.State() != "idle" {
+			t.Fatalf("state after = %s", w.State())
+		}
+		if p := New(Config{Enabled: false}); p.State() != "paused" {
+			t.Fatalf("disabled worker state = %s", p.State())
+		}
+	})
+}

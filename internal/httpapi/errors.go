@@ -10,6 +10,7 @@ import (
 	"github.com/manikorimilli/outlet-owl/internal/imports"
 	"github.com/manikorimilli/outlet-owl/internal/middleware"
 	"github.com/manikorimilli/outlet-owl/internal/outlets"
+	"github.com/manikorimilli/outlet-owl/internal/reviews"
 )
 
 // Detail is one entry of the error envelope's details: the field and the
@@ -51,6 +52,7 @@ func writeDomainError(w http.ResponseWriter, r *http.Request, logger *slog.Logge
 	var badName *outlets.ValidationError
 	var taken *outlets.NameTakenError
 	var fileErr *connector.FileError
+	var badFilter *reviews.ValidationError
 	var bodyTooLarge *http.MaxBytesError
 	switch {
 	case errors.Is(err, errUnsupportedMediaType):
@@ -65,6 +67,15 @@ func writeDomainError(w http.ResponseWriter, r *http.Request, logger *slog.Logge
 			details[i] = Detail{Field: p.Field, Reason: p.Reason}
 		}
 		WriteErrorDetails(w, r, http.StatusBadRequest, "csv_invalid", fileErr.Message, details)
+	case errors.Is(err, reviews.ErrNotFound):
+		WriteError(w, r, http.StatusNotFound, "not_found", "No such outlet among the ones you can see.")
+	case errors.As(err, &badFilter):
+		msg := "That theme is not in the theme list."
+		if badFilter.Field == "q" {
+			msg = "Use at most 200 characters in the search."
+		}
+		WriteErrorDetails(w, r, http.StatusUnprocessableEntity, "validation_failed", msg,
+			[]Detail{{Field: badFilter.Field, Reason: badFilter.Reason}})
 	case errors.Is(err, imports.ErrRoleNotAllowed):
 		WriteError(w, r, http.StatusForbidden, "role_not_allowed", "Only the brand admin can import reviews.")
 	case errors.As(err, &malformed):

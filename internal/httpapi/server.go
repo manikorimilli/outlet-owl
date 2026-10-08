@@ -24,7 +24,11 @@ type Deps struct {
 	Auth    Authenticator
 	Outlets OutletService
 	Imports ImportService
-	Brand   Brand
+	Reviews ReviewService
+	// Dashboard builds the weekly reports; Status reads the tagging status.
+	Dashboard DashboardService
+	Status    StatusReader
+	Brand     Brand
 }
 
 // New builds the HTTP handler. The chain, outermost first: request id, panic
@@ -40,6 +44,12 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("GET /api/v1/outlets", listOutlets(d))
 	mux.HandleFunc("POST /api/v1/outlets", createOutlet(d))
 	mux.HandleFunc("POST /api/v1/imports", createImport(d))
+	mux.HandleFunc("GET /api/v1/reviews", listReviews(d))
+	mux.HandleFunc("GET /api/v1/themes", listThemes(d))
+	mux.HandleFunc("GET /api/v1/dashboard/trends", getTrends(d))
+	mux.HandleFunc("GET /api/v1/dashboard/heatmap", getHeatmap(d))
+	mux.HandleFunc("GET /api/v1/dashboard/movers", getMovers(d))
+	mux.HandleFunc("GET /api/v1/tagging/status", getTaggingStatus(d))
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, r, http.StatusNotFound, "not_found", "No such route.")
 	})

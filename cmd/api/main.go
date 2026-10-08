@@ -20,10 +20,12 @@ import (
 
 	"github.com/manikorimilli/outlet-owl/internal/auth"
 	"github.com/manikorimilli/outlet-owl/internal/config"
+	"github.com/manikorimilli/outlet-owl/internal/dashboard"
 	"github.com/manikorimilli/outlet-owl/internal/gateway"
 	"github.com/manikorimilli/outlet-owl/internal/httpapi"
 	"github.com/manikorimilli/outlet-owl/internal/imports"
 	"github.com/manikorimilli/outlet-owl/internal/outlets"
+	"github.com/manikorimilli/outlet-owl/internal/reviews"
 	"github.com/manikorimilli/outlet-owl/internal/store"
 	"github.com/manikorimilli/outlet-owl/internal/tagging"
 	"github.com/manikorimilli/outlet-owl/prompts"
@@ -76,12 +78,15 @@ func run() error {
 	}
 
 	handler := httpapi.New(httpapi.Deps{
-		Logger:  logger,
-		DB:      st,
-		Auth:    auth.NewService(st, tokens),
-		Outlets: outlets.NewService(st),
-		Imports: imports.NewService(st, tagger),
-		Brand:   httpapi.Brand{Name: cfg.BrandName, Timezone: cfg.BrandTimezone.String()},
+		Logger:    logger,
+		DB:        st,
+		Auth:      auth.NewService(st, tokens),
+		Outlets:   outlets.NewService(st),
+		Imports:   imports.NewService(st, tagger),
+		Reviews:   reviews.NewService(st),
+		Dashboard: dashboard.NewService(st, time.Now, cfg.BrandTimezone),
+		Status:    statusReader{Store: st, worker: tagger, gw: gw},
+		Brand:     httpapi.Brand{Name: cfg.BrandName, Timezone: cfg.BrandTimezone.String()},
 	})
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
@@ -129,6 +134,17 @@ func run() error {
 	logger.Info("stopped")
 	return nil
 }
+
+// statusReader joins what GET /tagging/status reads: the counts from the
+// store, the worker's state and the gateway's credit flag.
+type statusReader struct {
+	*store.Store
+	worker *tagging.Worker
+	gw     *gateway.Gateway
+}
+
+func (s statusReader) WorkerState() string   { return s.worker.State() }
+func (s statusReader) CreditExhausted() bool { return s.gw.CreditExhausted() }
 
 // newTagger builds the tagging worker with the current tagging prompt
 // version built into the binary (Q-011).

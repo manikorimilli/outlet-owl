@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"sync/atomic"
 
 	"github.com/manikorimilli/outlet-owl/internal/gateway"
 	"github.com/manikorimilli/outlet-owl/prompts"
@@ -53,8 +54,20 @@ type Config struct {
 
 // Worker is the one tagging goroutine of the server (ADR-0006).
 type Worker struct {
-	cfg    Config
-	signal chan struct{}
+	cfg     Config
+	signal  chan struct{}
+	running atomic.Bool
+}
+
+// State is paused, running or idle (TaggingStatus.worker in the API).
+func (w *Worker) State() string {
+	switch {
+	case !w.cfg.Enabled:
+		return "paused"
+	case w.running.Load():
+		return "running"
+	}
+	return "idle"
 }
 
 // New builds a worker; Run starts it.
@@ -95,6 +108,8 @@ func (w *Worker) Run(ctx context.Context) {
 // safePass runs a pass and recovers a panic, so tagging never takes the API
 // server down with it (HLD section 3 risks).
 func (w *Worker) safePass(ctx context.Context) {
+	w.running.Store(true)
+	defer w.running.Store(false)
 	defer func() {
 		if p := recover(); p != nil {
 			w.cfg.Logger.Error("tagging pass panicked", "panic", fmt.Sprint(p))

@@ -9,6 +9,19 @@ import (
 	"context"
 )
 
+const budgetCents = `-- name: BudgetCents :one
+SELECT ceil(coalesce(sum(coalesce(settled_cost_usd, reserved_cost_usd)), 0) * 100)::bigint AS cents
+FROM budget.model_calls
+`
+
+// The running total in cents, rounded up, for the status bar (phase 4).
+func (q *Queries) BudgetCents(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, budgetCents)
+	var cents int64
+	err := row.Scan(&cents)
+	return cents, err
+}
+
 const failModelCall = `-- name: FailModelCall :execrows
 UPDATE budget.model_calls
 SET outcome = 'failed', updated_at = now()
