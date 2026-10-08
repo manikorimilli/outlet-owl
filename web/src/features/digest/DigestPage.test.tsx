@@ -18,12 +18,21 @@ const sent = {
   created_at: "2026-10-06T05:12:00Z",
 };
 
+const movers = {
+  week: { start: "2026-09-28", end: "2026-10-04" },
+  previous_week: { start: "2026-09-21", end: "2026-09-27" },
+  review_count: 66,
+  untagged_count: 0,
+  movers: [],
+};
+
 describe("DigestPage", () => {
   it("generates the digest with a key and shows what was sent, as text", async () => {
     const keys: string[] = [];
     stubFetch({
       "GET /api/v1/me": { status: 200, body: adminMe },
       "GET /api/v1/tagging/status": statusReply(),
+      "GET /api/v1/dashboard/movers": { status: 200, body: movers },
       "POST /api/v1/digests": (init) => {
         keys.push(new Headers(init.headers).get("Idempotency-Key") ?? "");
         return { status: 201, body: sent };
@@ -31,7 +40,12 @@ describe("DigestPage", () => {
     });
     renderApp("/digest");
 
-    fireEvent.click(await screen.findByRole("button", { name: "Generate digest" }));
+    expect(
+      await screen.findByText(
+        "Covers the latest complete week, 28 Sep to 4 Oct 2026, compared with 21 to 27 Sep. Sent to ritika.rao@example.in.",
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Generate and send digest" }));
 
     expect(await screen.findByRole("heading", { name: sent.subject })).toBeInTheDocument();
     expect(
@@ -45,11 +59,12 @@ describe("DigestPage", () => {
     stubFetch({
       "GET /api/v1/me": { status: 200, body: adminMe },
       "GET /api/v1/tagging/status": statusReply(),
+      "GET /api/v1/dashboard/movers": { status: 200, body: movers },
       "POST /api/v1/digests": errorReply(502, "mail_unavailable", "x"),
     });
     renderApp("/digest");
 
-    fireEvent.click(await screen.findByRole("button", { name: "Generate digest" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Generate and send digest" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Start MailHog");
   });
 });

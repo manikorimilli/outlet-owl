@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router";
 import { asApiError, type ApiError } from "../../lib/api";
 import { formatDate, reasonLabels, sentimentLabels } from "../../lib/format";
 import { useLoad } from "../../lib/use-load";
+import { listThemes } from "../reviews/api";
 import {
   draftReply,
   getReview,
@@ -60,39 +61,70 @@ function ReviewPage({ id }: { id: number }) {
   return <Loaded detail={state.data} />;
 }
 
+const sentimentBadge: Record<string, string> = {
+  positive: "ok",
+  neutral: "neutral",
+  negative: "neg",
+};
+
+// Loaded is the S-05 layout from the mockup: the review with its meta line,
+// theme chips and sentiment, then the reply.
 function Loaded({ detail }: { detail: ReviewDetail }) {
   const r = detail;
+  const [themes] = useLoad("themes", listThemes);
+  const label = (code: string) =>
+    (themes.status === "ready" ? themes.data.find((t) => t.code === code)?.label : undefined) ??
+    code;
   return (
     <div className="content cols-2">
       <div className="span-all page-head">
-        <p>
-          <Link to="/reviews">Back to reviews</Link>
+        <p className="small">
+          <Link to="/reviews">Reviews</Link> / {r.id}
         </p>
         <h1>
-          Review at <span className="hl">{r.outlet.name}</span>
+          Review from <span className="hl">{r.reviewer_name}</span>
         </h1>
-        <p className="muted">
-          {formatDate(r.review_date)}, {r.rating}/5, {r.source}
-        </p>
       </div>
-      <section aria-labelledby="review-title">
-        <h2 id="review-title">{r.reviewer_name} wrote</h2>
+      <section className="review-panel" aria-labelledby="review-title">
+        <h2 id="review-title" className="sr-only">
+          Review
+        </h2>
+        <p>
+          {formatDate(r.review_date)} · {r.outlet.name} · {r.source} ·{" "}
+          <span className="rating" aria-label={`${r.rating} out of 5`}>
+            {r.rating}/5
+          </span>
+        </p>
         {r.tags?.urgent_reasons.map((reason) => (
           <span key={reason} className="badge danger">
             Urgent: {reasonLabels[reason] ?? reason}
           </span>
         ))}
         <p className="review-text">{r.review_text}</p>
-        <p className="small muted">
-          {r.tags
-            ? `${sentimentLabels[r.tags.sentiment]}. Themes: ${r.tags.themes.length ? r.tags.themes.join(", ") : "none"}.`
-            : "Not tagged yet."}
-        </p>
+        <p className="small muted">{r.reviewer_name}</p>
+        {r.tags ? (
+          <p>
+            {r.tags.themes.map((code) => (
+              <span key={code} className="chip">
+                {label(code)}
+              </span>
+            ))}
+            <span className={`badge ${sentimentBadge[r.tags.sentiment] ?? ""}`}>
+              {sentimentLabels[r.tags.sentiment]}
+            </span>
+          </p>
+        ) : (
+          <p className="small muted">Not tagged yet.</p>
+        )}
       </section>
-      <aside aria-labelledby="reply-title">
-        <h2 id="reply-title">Reply</h2>
-        {r.can_reply ? <ReplyEditor id={r.id} initial={r.reply} /> : <ReadOnlyReply detail={r} />}
-      </aside>
+      <section className="reply-panel" aria-labelledby="reply-title">
+        <h2 id="reply-title">Your reply</h2>
+        {r.can_reply ? (
+          <ReplyEditor id={r.id} initial={r.reply} reviewer={r.reviewer_name} />
+        ) : (
+          <ReadOnlyReply detail={r} />
+        )}
+      </section>
     </div>
   );
 }
@@ -127,7 +159,15 @@ function RepliedNote({ reply }: { reply: Reply }) {
   );
 }
 
-function ReplyEditor({ id, initial }: { id: number; initial: Reply | null }) {
+function ReplyEditor({
+  id,
+  initial,
+  reviewer,
+}: {
+  id: number;
+  initial: Reply | null;
+  reviewer: string;
+}) {
   const fieldId = useId();
   const [reply, setReply] = useState<Reply | null>(initial);
   const [text, setText] = useState(initial?.reply_text ?? "");
@@ -250,7 +290,7 @@ function ReplyEditor({ id, initial }: { id: number; initial: Reply | null }) {
           disabled={busy || text.trim() === ""}
           onClick={() => act("replied")}
         >
-          Mark replied
+          Mark as replied
         </button>
         <button
           className="btn btn-secondary"
@@ -258,7 +298,7 @@ function ReplyEditor({ id, initial }: { id: number; initial: Reply | null }) {
           disabled={busy || text.trim() === ""}
           onClick={() => act("save")}
         >
-          Save
+          Save draft
         </button>
       </div>
       {unavailable && (
@@ -285,9 +325,7 @@ function ReplyEditor({ id, initial }: { id: number; initial: Reply | null }) {
           {failure.requestId ? ` Request id: ${failure.requestId}` : ""}
         </p>
       )}
-      <label htmlFor={fieldId}>
-        {reply?.draft_text ? "Drafted reply, edit before marking replied" : "Your reply"}
-      </label>
+      <label htmlFor={fieldId}>Reply to {reviewer}</label>
       <textarea
         id={fieldId}
         rows={10}
@@ -295,9 +333,14 @@ function ReplyEditor({ id, initial }: { id: number; initial: Reply | null }) {
         value={text}
         onChange={(e) => setText(e.target.value)}
       />
+      {reply?.draft_text && (
+        <p className="small muted">
+          Drafted with reply prompt v{reply.prompt_version} in the brand&apos;s tone. Edit freely;
+          nothing is posted for you.
+        </p>
+      )}
       <p className="small muted">
-        Marking replied approves this text. Post it on the review site yourself; OutletOwl does not
-        post replies.
+        Mark as replied after you post this text on the review site yourself.
       </p>
       <p role="status">{saved}</p>
     </form>

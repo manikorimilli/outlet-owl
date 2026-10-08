@@ -129,14 +129,14 @@ export function ReviewsPage() {
       {!(empty && !active) && (
         <section aria-label="Search and filters">
           <form className="filters" onSubmit={search} role="search">
-            <label>
+            <label className="f-search">
               Search reviews
               <input
                 type="search"
                 value={q}
                 maxLength={200}
                 onChange={(e) => setDraft({ key, q: e.target.value })}
-                placeholder="Text or reviewer name"
+                placeholder="Words in the review or the reviewer name"
               />
             </label>
             {isAdmin && (

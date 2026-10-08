@@ -52,10 +52,10 @@ describe("ReviewPage", () => {
     });
     renderApp("/reviews/7");
 
-    const box = await screen.findByLabelText(/Drafted reply/);
+    const box = await screen.findByLabelText(/Reply to/);
     expect(box).toHaveValue("Hi Sunita, sorry for the wait.");
     fireEvent.change(box, { target: { value: "Hi Sunita, sorry. We are fixing it." } });
-    fireEvent.click(screen.getByRole("button", { name: "Mark replied" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mark as replied" }));
 
     expect(await screen.findByText("Replied by Arjun Mehta on 4 Oct 2026")).toBeInTheDocument();
     expect(sent).toEqual({
@@ -84,8 +84,8 @@ describe("ReviewPage", () => {
     renderApp("/reviews/7");
 
     expect(await screen.findByRole("alert")).toHaveTextContent("model budget is used up");
-    fireEvent.change(screen.getByLabelText("Your reply"), { target: { value: "Sorry, Sunita." } });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.change(screen.getByLabelText(/Reply to/), { target: { value: "Sorry, Sunita." } });
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
 
     expect(await screen.findByText("Saved.")).toBeInTheDocument();
     expect(saved).toEqual({ reply_text: "Sorry, Sunita.", based_on_updated_at: null });
@@ -104,7 +104,7 @@ describe("ReviewPage", () => {
     });
     renderApp("/reviews/7");
 
-    fireEvent.click(await screen.findByRole("button", { name: "Save" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Save draft" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("changed since you opened it");
     expect(screen.getByRole("button", { name: "Reload the reply" })).toBeInTheDocument();
   });
@@ -131,14 +131,14 @@ describe("ReviewPage", () => {
     });
     renderApp("/reviews/7");
 
-    const box = await screen.findByLabelText(/Drafted reply/);
+    const box = await screen.findByLabelText(/Reply to/);
     fireEvent.change(box, { target: { value: "My long edit" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
     fireEvent.click(await screen.findByRole("button", { name: "Reload the reply" }));
     expect(await screen.findByText(/Your text is kept/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Drafted reply/)).toHaveValue("My long edit");
+    expect(screen.getByLabelText(/Reply to/)).toHaveValue("My long edit");
 
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
     expect(await screen.findByText("Saved.")).toBeInTheDocument();
     expect(sent).toEqual({
       reply_text: "My long edit",
@@ -173,11 +173,11 @@ describe("ReviewPage", () => {
     });
     renderApp("/reviews/7");
 
-    const box = await screen.findByLabelText("Your reply");
+    const box = await screen.findByLabelText(/Reply to/);
     fireEvent.change(box, { target: { value: "Sorry." } });
-    fireEvent.click(screen.getByRole("button", { name: "Mark replied" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mark as replied" }));
     expect(await screen.findByText(/Something went wrong/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Mark replied" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mark as replied" }));
     expect(await screen.findByText(/Replied by Arjun Mehta/)).toBeInTheDocument();
     expect(bases).toEqual(["2026-10-04T05:41:07.512345Z", "2026-10-04T05:41:07.512345Z"]);
     expect(puts).toBe(1);
@@ -194,7 +194,7 @@ describe("ReviewPage", () => {
 
     expect(await screen.findByText("Hi Sunita")).toBeInTheDocument();
     expect(screen.getByText(/Only Arjun Mehta, the outlet's manager/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Mark replied" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Mark as replied" })).not.toBeInTheDocument();
   });
 
   it("a review outside the caller's outlet is not found", async () => {
