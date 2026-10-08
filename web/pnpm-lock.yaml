@@ -166,6 +166,12 @@ importers:
 
   .:
     dependencies:
+      '@fontsource/noto-sans-devanagari':
+        specifier: 5.3.0
+        version: 5.3.0
+      '@fontsource/plus-jakarta-sans':
+        specifier: 5.3.0
+        version: 5.3.0
       react:
         specifier: 19.3.0
         version: 19.3.0
@@ -576,6 +582,12 @@ packages:
     peerDependenciesMeta:
       '@noble/hashes':
         optional: true
+
+  '@fontsource/noto-sans-devanagari@5.3.0':
+    resolution: {integrity: sha512-7khYmipS/5KAUUmrO1DKir8yL8XI00d0+ZE9BqbS8XF1jzObv6CpPOk3UeYxF+Pvi8bx9bBvprBCOcbx/eQWTQ==}
+
+  '@fontsource/plus-jakarta-sans@5.3.0':
+    resolution: {integrity: sha512-9WRw3G74Ve4cyPApAZSXLPY5DiLOZXDn7Q7dIBjFBpA0Pj56ljDItEdy2UUajjJxRuTg2HkMLO5C3K2nAQORWg==}
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -2095,6 +2107,10 @@ snapshots:
       levn: 0.4.1
 
   '@exodus/bytes@1.16.0': {}
+
+  '@fontsource/noto-sans-devanagari@5.3.0': {}
+
+  '@fontsource/plus-jakarta-sans@5.3.0': {}
 
   '@humanfs/core@0.19.2':
     dependencies:

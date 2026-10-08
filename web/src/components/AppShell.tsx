@@ -2,11 +2,12 @@ import { useState } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router";
 import { useSession } from "../app/session-context";
 import { logout, type Me } from "../features/auth/api";
+import { StatusStrip } from "../features/status/StatusStrip";
 
 type NavItem = { to: string; label: string; icon: string };
 
-// Only built routes appear; later phases add Reviews, Themes and Digest
-// (web LLD section 3). Icon paths come from the S-06 and S-07 mockups.
+// Only built routes appear; Digest arrives with phase 6 (web LLD section 3).
+// Icon paths come from the mockups. Below 600 px the nav is a bottom tab bar.
 const overview: NavItem = { to: "/", label: "Overview", icon: "M4 20V10M10 20V4M16 20v-7M22 20H2" };
 const outlets: NavItem = {
   to: "/outlets",
@@ -20,8 +21,20 @@ const importNav: NavItem = {
   icon: "M12 15V3M7 8l5-5 5 5M4 15v5h16v-5",
 };
 
+const reviewsNav: NavItem = {
+  to: "/reviews",
+  label: "Reviews",
+  icon: "M4 5h16M4 10h16M4 15h10M4 20h7",
+};
+const themesNav: NavItem = {
+  to: "/themes",
+  label: "Themes",
+  icon: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
+};
+
 function navFor(role: Me["role"]): NavItem[] {
-  return role === "brand_admin" ? [overview, outlets, importNav] : [overview];
+  const shared = [overview, reviewsNav, themesNav];
+  return role === "brand_admin" ? [...shared, outlets, importNav] : shared;
 }
 
 function whoLabel(me: Me): string {
@@ -89,6 +102,7 @@ export function AppShell() {
       </div>
       <header className="topbar">
         <span className="brand-sub">{me.brand.name}</span>
+        <StatusStrip />
         <span className="spacer" />
         <span className="muted who">{whoLabel(me)}</span>
         <button

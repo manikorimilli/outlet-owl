@@ -11,24 +11,24 @@ function navLinks() {
 }
 
 describe("AppShell", () => {
-  it("the brand admin sees Overview, Outlets and Import in the nav", async () => {
+  it("the brand admin sees every built section in the nav", async () => {
     stubFetch({ "GET /api/v1/me": { status: 200, body: adminMe } });
 
     renderApp("/outlets");
 
     await screen.findByRole("navigation", { name: "Sections" });
-    expect(navLinks()).toEqual(["Overview", "Outlets", "Import"]);
+    expect(navLinks()).toEqual(["Overview", "Reviews", "Themes", "Outlets", "Import"]);
     expect(screen.getByRole("link", { name: "Outlets" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Overview" })).not.toHaveAttribute("aria-current");
   });
 
-  it("an outlet manager sees Overview only", async () => {
+  it("an outlet manager sees Overview, Reviews and Themes", async () => {
     stubFetch({ "GET /api/v1/me": { status: 200, body: managerMe } });
 
     renderApp("/");
 
     await screen.findByRole("navigation", { name: "Sections" });
-    expect(navLinks()).toEqual(["Overview"]);
+    expect(navLinks()).toEqual(["Overview", "Reviews", "Themes"]);
   });
 
   it("the top bar shows the brand, the person and the role from /me", async () => {
