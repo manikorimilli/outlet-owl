@@ -8,8 +8,8 @@
 // Versions are never edited or deleted once used, because stored tags and
 // drafts name them; a change of any kind is a new version. The current marker
 // lives outside the version files, so making v2 current never touches v1.
-// The real prompts arrive with their phases (tagging in 3, reply in 5), which
-// add the //go:embed that feeds Parse.
+// The tagging prompt ships in tagging/ (phase 3) and the reply prompt joins
+// in phase 5; embed.go builds them into the binary.
 package prompts
 
 import (
