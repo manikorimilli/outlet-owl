@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import { formatDate, reasonLabels, sentimentLabels } from "../../lib/format";
 import type { ReviewSummary, Theme } from "./api";
+import { TableScroll } from "../../components/TableScroll";
 
 const replyLabels: Record<string, string> = {
   none: "Not replied",
@@ -22,7 +23,7 @@ export function ReviewTable({
 }) {
   const label = (code: string) => themes.find((t) => t.code === code)?.label ?? code;
   return (
-    <div className="table-scroll">
+    <TableScroll label="Reviews">
       <table className="data reviews">
         <caption className="sr-only">Reviews, newest first</caption>
         <thead>
@@ -80,6 +81,6 @@ export function ReviewTable({
           ))}
         </tbody>
       </table>
-    </div>
+    </TableScroll>
   );
 }

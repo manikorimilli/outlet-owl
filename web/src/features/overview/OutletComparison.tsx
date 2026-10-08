@@ -1,5 +1,6 @@
 import { Sparkline } from "../../components/Sparkline";
 import { negativeShare, type Trends } from "./api";
+import { TableScroll } from "../../components/TableScroll";
 
 function pct(v: number | null): string {
   return v === null ? "none" : `${Math.round(v * 100)}%`;
@@ -9,7 +10,7 @@ function pct(v: number | null): string {
 // change, and 12 week sparklines of rating and negative share (S-02).
 export function OutletComparison({ trends }: { trends: Trends }) {
   return (
-    <div className="table-scroll">
+    <TableScroll label="Outlets compared">
       <table className="data">
         <caption className="sr-only">
           Outlets compared, latest complete week and 12 week trends
@@ -73,6 +74,6 @@ export function OutletComparison({ trends }: { trends: Trends }) {
           })}
         </tbody>
       </table>
-    </div>
+    </TableScroll>
   );
 }

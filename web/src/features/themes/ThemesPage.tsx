@@ -5,6 +5,7 @@ import type { components } from "../../lib/api-types";
 import { formatRange } from "../../lib/format";
 import { useLoad } from "../../lib/use-load";
 import { reviewsLink } from "../reviews/api";
+import { TableScroll } from "../../components/TableScroll";
 
 type Heatmap = components["schemas"]["Heatmap"];
 const getHeatmap = () => apiFetch<Heatmap>("/dashboard/heatmap");
@@ -82,7 +83,7 @@ export function ThemesPage() {
       )}
       {h && !empty && (
         <section>
-          <div className="table-scroll">
+          <TableScroll label="Negative reviews by outlet and theme">
             <table className="data heatmap">
               <caption className="sr-only">
                 Negative reviews by outlet and theme, last 4 weeks
@@ -128,7 +129,7 @@ export function ThemesPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </TableScroll>
           <ul className="legend" aria-label="Colour scale">
             {buckets.map((b, i) => (
               <li key={b.label}>

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { adminMe, stubFetch, type Reply } from "../../test/fetch-stub";
 import { statusReply, themesReply } from "../../test/phase4-fixtures";
 import { renderApp } from "../../test/render-app";
+import { expectAccessibleStructure } from "../../test/a11y";
 
 const heatmap = (counts: Record<string, number>, untagged = 0): Reply => ({
   status: 200,
@@ -50,6 +51,7 @@ describe("ThemesPage", () => {
     expect(within(table).getByText("26")).toBeInTheDocument();
     expect(screen.getByRole("list", { name: "Colour scale" })).toHaveTextContent("15 or more");
     expect(screen.getByText(/7 Sep to 4 Oct 2026/)).toBeInTheDocument();
+    expectAccessibleStructure();
   });
 
   it("empty and partial", async () => {

@@ -2,6 +2,7 @@ import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { adminMe, errorReply, stubFetch, unauthorized, type Reply } from "../../test/fetch-stub";
 import { renderApp } from "../../test/render-app";
+import { expectAccessibleStructure } from "../../test/a11y";
 
 async function fillAndSubmit(email = "ritika.rao@example.in", password = "correct horse") {
   fireEvent.change(await screen.findByLabelText("Work email"), { target: { value: email } });
@@ -52,6 +53,13 @@ describe("SignInPage", () => {
     expect(screen.getByLabelText("Work email")).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByLabelText("Password")).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByTestId("location").textContent).toBe("/sign-in");
+    // each invalid field points at the message that explains it
+    for (const name of ["Work email", "Password"]) {
+      const id = screen.getByLabelText(name).getAttribute("aria-describedby") ?? "";
+      expect(id).not.toBe("");
+      expect(document.getElementById(id.split(" ")[0] ?? "")).not.toBeNull();
+    }
+    expectAccessibleStructure();
   });
 
   it("a 422 shows the message under the named field", async () => {

@@ -7,6 +7,7 @@ import { listReviews, reviewsLink } from "../reviews/api";
 import { dollars, getTaggingStatus } from "../status/api";
 import { getMovers, getTrends } from "./api";
 import { OutletComparison } from "./OutletComparison";
+import { TableScroll } from "../../components/TableScroll";
 
 // OverviewPage is S-02: the week line, the top mover in one sentence, the
 // ranked movers, the week's urgent reviews and the outlet comparison.
@@ -137,7 +138,7 @@ export function OverviewPage() {
               <span className="num">{top.previous_count}</span> to{" "}
               <span className="num">{top.current_count}</span>.
             </p>
-            <div className="table-scroll">
+            <TableScroll label="Biggest movers">
               <table className="data">
                 <caption className="sr-only">
                   Biggest movers, negative reviews by outlet and theme
@@ -183,7 +184,7 @@ export function OverviewPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </TableScroll>
             <p className="small muted">
               Ranked by the change in negative reviews per outlet and theme. Open a row to read
               those reviews.
