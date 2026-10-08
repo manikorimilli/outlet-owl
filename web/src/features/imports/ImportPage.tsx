@@ -8,7 +8,7 @@ import { ImportResultCard } from "./ImportResultCard";
 
 type Outlets = "loading" | "none" | "some" | "unknown";
 
-type Failure = { message: string; requestId?: string };
+type Failure = { message: string; requestId?: string; final?: boolean };
 
 // failureFor turns each refusal the spec lists for POST /imports into what
 // happened and what to do; csv_invalid and file_too_large carry the
@@ -17,9 +17,9 @@ function failureFor(err: ApiError): Failure {
   switch (err.code) {
     case "csv_invalid":
     case "file_too_large":
-      return { message: err.message };
+      return { message: err.message, final: true };
     case "role_not_allowed":
-      return { message: "Only the brand admin can import reviews." };
+      return { message: "Only the brand admin can import reviews.", final: true };
     case "network":
       return { message: "The file was not imported because the server did not answer. Try again." };
   }
@@ -27,6 +27,11 @@ function failureFor(err: ApiError): Failure {
     message: "The file was not imported because something failed on the server. Try again.",
     requestId: err.requestId,
   };
+}
+
+// summary is the one sentence the status region announces for a result.
+function summary(r: ImportResult): string {
+  return `${r.file_name} imported: ${r.imported_count} imported, ${r.duplicate_count} already imported and skipped, ${r.rejected_count} rejected.`;
 }
 
 // ImportPage is S-07 for the brand admin: one file field, then the result.
@@ -38,6 +43,7 @@ export function ImportPage() {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [announcement, setAnnouncement] = useState("");
   const id = useId();
   const errorId = `${id}-error`;
 
@@ -68,14 +74,26 @@ export function ImportPage() {
     }
     setBusy(true);
     setFailure(null);
+    setResult(null);
+    setAnnouncement(`Reading ${file.name} and checking each row.`);
     try {
       const res = await importReviews(file, key);
       setResult(res);
-      setFile(null);
-      setKey("");
+      setAnnouncement(summary(res));
+      choose(null);
       form.reset();
     } catch (err) {
-      setFailure(failureFor(asApiError(err)));
+      const f = failureFor(asApiError(err));
+      setFailure(f);
+      setAnnouncement("");
+      // A refusal stored nothing: the admin fixes the file and chooses it
+      // again, which must read the new file under a new key. After a lost
+      // answer the same file and key are kept, so a retry cannot import twice.
+      if (f.final) {
+        setFile(null);
+        setKey("");
+        form.reset();
+      }
     } finally {
       setBusy(false);
     }
@@ -94,9 +112,13 @@ export function ImportPage() {
           available now.
         </p>
       </div>
+      {/* Mounted from the start, so screen readers announce each change. */}
+      <p className="sr-only" role="status">
+        {announcement}
+      </p>
       {busy && file && (
         <section aria-busy="true">
-          <p role="status">Reading {file.name} and checking each row.</p>
+          <p>Reading {file.name} and checking each row.</p>
         </section>
       )}
       {!busy && result && <ImportResultCard result={result} />}

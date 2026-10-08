@@ -1,5 +1,9 @@
 import type { ImportResult } from "./api";
 
+// shownRows caps the rejected-rows table; a file with a wrong date format
+// can reject every row, and thousands of rows would stall the page.
+const shownRows = 200;
+
 // ImportResultCard answers the three counts the admin needs and lists each
 // rejected row with its number and reason (S-07 success and partial states).
 // Reasons quote the admin's own cells and are rendered as text (tenet 6).
@@ -45,7 +49,7 @@ export function ImportResultCard({ result }: { result: ImportResult }) {
                 </tr>
               </thead>
               <tbody>
-                {result.rejections.map((r) => (
+                {result.rejections.slice(0, shownRows).map((r) => (
                   <tr key={r.row_number}>
                     <td className="num">{r.row_number}</td>
                     <td>{r.reason}</td>
@@ -54,6 +58,11 @@ export function ImportResultCard({ result }: { result: ImportResult }) {
               </tbody>
             </table>
           </div>
+          {result.rejections.length > shownRows && (
+            <p className="small muted">
+              Showing the first {shownRows} of {result.rejections.length} rejected rows.
+            </p>
+          )}
           <p className="small muted">
             Fix these rows in the file and import it again; rows already imported are skipped.
           </p>

@@ -1,4 +1,4 @@
-import { fireEvent, screen, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { adminMe, errorReply, stubFetch, type Reply } from "../../test/fetch-stub";
 import { renderApp } from "../../test/render-app";
@@ -113,6 +113,78 @@ describe("ImportPage", () => {
 
     expect(keys).toHaveLength(2);
     expect(keys[1]).toBe(keys[0]);
+
+    await chooseAndImport(new File(["x"], "october.csv", { type: "text/csv" }));
+    await waitFor(() => expect(keys).toHaveLength(3));
+    expect(keys[2]).not.toBe(keys[0]);
+  });
+
+  it("a refusal clears the file, so a corrected file is read under a new key", async () => {
+    const keys: string[] = [];
+    let call = 0;
+    stubFetch({
+      "GET /api/v1/me": { status: 200, body: adminMe },
+      "GET /api/v1/outlets": someOutlets,
+      "POST /api/v1/imports": (init) => {
+        keys.push(new Headers(init.headers).get("Idempotency-Key") ?? "");
+        call += 1;
+        return call === 1
+          ? errorReply(400, "csv_invalid", "This file has no rating column.")
+          : { status: 201, body: result() };
+      },
+    });
+
+    renderApp("/import");
+    await chooseAndImport();
+    expect(await screen.findByRole("alert")).toHaveTextContent("no rating column");
+    fireEvent.click(screen.getByRole("button", { name: "Import reviews" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Choose a CSV file");
+    expect(keys).toHaveLength(1);
+
+    await chooseAndImport();
+    await screen.findByRole("region", { name: "reviews-sept.csv imported" });
+    expect(keys[1]).not.toBe(keys[0]);
+  });
+
+  it("the status region announces the result", async () => {
+    stubFetch({
+      "GET /api/v1/me": { status: 200, body: adminMe },
+      "GET /api/v1/outlets": someOutlets,
+      "POST /api/v1/imports": { status: 201, body: result() },
+    });
+
+    renderApp("/import");
+    await screen.findByRole("heading", { name: "Import reviews" });
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+    await chooseAndImport();
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "reviews-sept.csv imported: 479 imported, 14 already imported and skipped, 0 rejected.",
+      ),
+    );
+  });
+
+  it("caps the rejected rows at 200 and says how many there are", async () => {
+    const rejections = Array.from({ length: 250 }, (_, i) => ({
+      row_number: i + 2,
+      reason: "Date is empty.",
+    }));
+    stubFetch({
+      "GET /api/v1/me": { status: 200, body: adminMe },
+      "GET /api/v1/outlets": someOutlets,
+      "POST /api/v1/imports": {
+        status: 201,
+        body: result({ imported_count: 0, rejected_count: 250, rejections }),
+      },
+    });
+
+    renderApp("/import");
+    await chooseAndImport();
+
+    const table = await screen.findByRole("table", { name: "Rejected rows" });
+    expect(within(table).getAllByRole("row")).toHaveLength(201);
+    expect(screen.getByText("Showing the first 200 of 250 rejected rows.")).toBeInTheDocument();
   });
 
   it("importing: the button is disabled and the progress line shows", async () => {
@@ -125,7 +197,9 @@ describe("ImportPage", () => {
     renderApp("/import");
     await chooseAndImport();
 
-    expect(await screen.findByRole("status")).toHaveTextContent("Reading reviews-sept.csv");
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("Reading reviews-sept.csv"),
+    );
     expect(screen.getByRole("button", { name: "Importing" })).toBeDisabled();
   });
 
