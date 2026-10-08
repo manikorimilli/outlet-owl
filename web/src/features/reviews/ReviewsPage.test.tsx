@@ -121,7 +121,7 @@ describe("ReviewsPage", () => {
     expect(screen.queryByLabelText("Outlet")).not.toBeInTheDocument();
   });
 
-  it("the urgent list opened from the overview names its week", async () => {
+  it("a date window from the overview or heatmap is shown and can be cleared", async () => {
     stubFetch({
       ...base,
       [list({ urgent: true, from: "2026-09-28", to: "2026-10-04" })]: page([
@@ -131,13 +131,17 @@ describe("ReviewsPage", () => {
     renderApp("/reviews?urgent=true&from=2026-09-28&to=2026-10-04");
 
     expect(
-      await screen.findByText(/Showing urgent reviews from the week of 28 Sep to 4 Oct 2026/),
+      await screen.findByText(/Showing reviews from 28 Sep to 4 Oct 2026/),
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show all dates" })).toBeInTheDocument();
   });
 
   it("readFilters trims the search and drops bad values one by one", () => {
     expect(
       readFilters(new URLSearchParams("q=%20%20&outlet=-1&from=2026-13&to=2026-10-04&urgent=yes")),
     ).toEqual({ to: "2026-10-04" });
+    expect(
+      readFilters(new URLSearchParams("outlet=99999999999999999999&from=2026-13-45&to=2026-02-30")),
+    ).toEqual({});
   });
 });

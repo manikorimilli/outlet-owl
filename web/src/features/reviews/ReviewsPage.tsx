@@ -108,10 +108,20 @@ export function ReviewsPage() {
             newest first.
           </p>
         )}
-        {filters.urgent && filters.from && filters.to && (
+        {(filters.from || filters.to) && (
           <p>
-            Showing urgent reviews from the week of {formatRange(filters.from, filters.to)}.{" "}
-            <Link to="/reviews">Show all reviews</Link>
+            {filters.from && filters.to
+              ? `Showing reviews from ${formatRange(filters.from, filters.to)}.`
+              : filters.from
+                ? `Showing reviews from ${filters.from} on.`
+                : `Showing reviews up to ${filters.to}.`}{" "}
+            <button
+              className="btn btn-secondary btn-small"
+              type="button"
+              onClick={() => update({ ...filters, from: undefined, to: undefined })}
+            >
+              Show all dates
+            </button>
           </p>
         )}
       </div>
@@ -221,8 +231,9 @@ export function ReviewsPage() {
         <section>
           <div className="error" role="alert">
             <p>
-              Reviews could not load because the server did not answer. Your filters are kept; check
-              that OutletOwl is running, then try again.
+              {page.error.status === 422 || page.error.status === 400
+                ? `The server refused these filters: ${page.error.message}`
+                : "Reviews could not load because the server did not answer. Your filters are kept; check that OutletOwl is running, then try again."}
             </p>
             {page.error.requestId && (
               <p className="request-id">Request id: {page.error.requestId}</p>
@@ -230,7 +241,12 @@ export function ReviewsPage() {
           </div>
           <button className="btn btn-secondary" type="button" onClick={reload}>
             Load reviews again
-          </button>
+          </button>{" "}
+          {active && (
+            <Link className="btn btn-secondary" to="/reviews">
+              Clear filters
+            </Link>
+          )}
         </section>
       )}
       {empty && !active && (

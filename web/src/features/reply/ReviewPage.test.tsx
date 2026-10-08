@@ -109,6 +109,80 @@ describe("ReviewPage", () => {
     expect(screen.getByRole("button", { name: "Reload the reply" })).toBeInTheDocument();
   });
 
+  it("reloading after a conflict keeps the typed text and saves on the newer reply", async () => {
+    let sent: Record<string, unknown> = {};
+    let puts = 0;
+    let gets = 0;
+    const newer = { ...draft("Hi from the other tab"), updated_at: "2026-10-04T06:00:00Z" };
+    stubFetch({
+      ...base,
+      "GET /api/v1/me": { status: 200, body: managerMe },
+      "GET /api/v1/reviews/7": () => {
+        gets += 1;
+        return detail(true, gets === 1 ? draft("Hi") : newer);
+      },
+      "PUT /api/v1/reviews/7/reply": (init) => {
+        puts += 1;
+        sent = JSON.parse(String(init.body)) as Record<string, unknown>;
+        return puts === 1
+          ? errorReply(409, "reply_changed", "This reply changed since you opened it.")
+          : { status: 200, body: { ...newer, reply_text: "My long edit" } };
+      },
+    });
+    renderApp("/reviews/7");
+
+    const box = await screen.findByLabelText(/Drafted reply/);
+    fireEvent.change(box, { target: { value: "My long edit" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Reload the reply" }));
+    expect(await screen.findByText(/Your text is kept/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Drafted reply/)).toHaveValue("My long edit");
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Saved.")).toBeInTheDocument();
+    expect(sent).toEqual({
+      reply_text: "My long edit",
+      based_on_updated_at: "2026-10-04T06:00:00Z",
+    });
+  });
+
+  it("a hand-written reply whose approval failed is retried on the stored row", async () => {
+    const bases: unknown[] = [];
+    let marks = 0;
+    let puts = 0;
+    stubFetch({
+      ...base,
+      "GET /api/v1/me": { status: 200, body: managerMe },
+      "GET /api/v1/reviews/7": detail(true),
+      "POST /api/v1/reviews/7/draft": errorReply(
+        503,
+        "model_unavailable",
+        "Drafting is unavailable.",
+      ),
+      "PUT /api/v1/reviews/7/reply": () => {
+        puts += 1;
+        return { status: 200, body: draft("Sorry.") };
+      },
+      "POST /api/v1/reviews/7/replied": (init) => {
+        marks += 1;
+        bases.push((JSON.parse(String(init.body)) as Record<string, unknown>).based_on_updated_at);
+        return marks === 1
+          ? errorReply(500, "internal", "Something went wrong.")
+          : { status: 200, body: draft("Sorry.", "replied") };
+      },
+    });
+    renderApp("/reviews/7");
+
+    const box = await screen.findByLabelText("Your reply");
+    fireEvent.change(box, { target: { value: "Sorry." } });
+    fireEvent.click(screen.getByRole("button", { name: "Mark replied" }));
+    expect(await screen.findByText(/Something went wrong/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Mark replied" }));
+    expect(await screen.findByText(/Replied by Arjun Mehta/)).toBeInTheDocument();
+    expect(bases).toEqual(["2026-10-04T05:41:07.512345Z", "2026-10-04T05:41:07.512345Z"]);
+    expect(puts).toBe(1);
+  });
+
   // AC-US-00-003-3: the admin reads; no draft is requested and no action shows.
   it("the brand admin reads the reply and is told who can reply", async () => {
     stubFetch({

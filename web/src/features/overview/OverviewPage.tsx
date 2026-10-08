@@ -20,8 +20,9 @@ export function OverviewPage() {
   const [outlets] = useLoad("outlets", listOutlets);
   const week = movers.status === "ready" ? movers.data.week : null;
   const urgentFilter = week ? { urgent: true, from: week.start, to: week.end } : null;
-  const [urgent] = useLoad(urgentFilter ? `urgent-${week?.start}` : "urgent-wait", () =>
-    urgentFilter ? listReviews(urgentFilter) : new Promise<never>(() => undefined),
+  const [urgent, reloadUrgent] = useLoad(
+    urgentFilter ? `urgent-${week?.start}` : "urgent-wait",
+    () => (urgentFilter ? listReviews(urgentFilter) : new Promise<never>(() => undefined)),
   );
 
   const title = isAdmin || !me?.outlet ? "Overview" : `Overview: ${me.outlet.name}`;
@@ -196,6 +197,15 @@ export function OverviewPage() {
           Urgent this week{" "}
           {urgent.status === "ready" && <span className="num">{urgent.data.total}</span>}
         </h2>
+        {urgent.status === "loading" && <p role="status">Loading urgent reviews</p>}
+        {urgent.status === "error" && (
+          <div className="error" role="alert">
+            <p>Urgent reviews could not load. This does not mean there are none.</p>
+            <button className="btn btn-secondary btn-small" type="button" onClick={reloadUrgent}>
+              Load urgent reviews again
+            </button>
+          </div>
+        )}
         {urgent.status === "ready" && urgent.data.total === 0 && (
           <p className="muted">No urgent reviews this week.</p>
         )}

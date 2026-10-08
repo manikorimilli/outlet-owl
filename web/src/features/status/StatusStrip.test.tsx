@@ -1,6 +1,6 @@
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { adminMe, stubFetch } from "../../test/fetch-stub";
+import { adminMe, errorReply, stubFetch } from "../../test/fetch-stub";
 import { statusReply } from "../../test/phase4-fixtures";
 import { renderApp } from "../../test/render-app";
 
@@ -32,4 +32,14 @@ describe("StatusStrip", () => {
       expect(await screen.findByText(text)).toBeInTheDocument();
     });
   }
+
+  it("says the status is unavailable when it cannot load", async () => {
+    stubFetch({
+      "GET /api/v1/me": { status: 200, body: adminMe },
+      "GET /api/v1/tagging/status": errorReply(500, "internal", "Something went wrong."),
+      "GET /api/v1/outlets": { status: 200, body: { data: [] } },
+    });
+    renderApp("/outlets");
+    expect(await screen.findByText("Tagging status unavailable")).toBeInTheDocument();
+  });
 });

@@ -1,10 +1,16 @@
+import { useLocation } from "react-router";
 import { useLoad } from "../../lib/use-load";
 import { getTaggingStatus } from "./api";
 
-// StatusStrip is the top bar's tagging and budget line, read once per page
-// view. Colour always comes with the words.
+// StatusStrip is the top bar's tagging and budget line. The shell stays
+// mounted, so it is read again on every navigation. Colour always comes with
+// the words.
 export function StatusStrip() {
-  const [state] = useLoad("status", getTaggingStatus);
+  const { key } = useLocation();
+  const [state] = useLoad(`status-${key}`, getTaggingStatus);
+  if (state.status === "error") {
+    return <span className="badge status warn">Tagging status unavailable</span>;
+  }
   if (state.status !== "ready") {
     return null;
   }

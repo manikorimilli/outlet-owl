@@ -35,7 +35,7 @@ type Drafting = "idle" | "drafting" | "unavailable";
 // gets a draft on open (Q-007), edits it and marks it replied, which is the
 // approval (Q-008). Everyone else reads.
 function ReviewPage({ id }: { id: number }) {
-  const [state, reload] = useLoad(`review-${id}`, () => getReview(id));
+  const [state] = useLoad(`review-${id}`, () => getReview(id));
   if (state.status === "loading") {
     return (
       <div className="content">
@@ -57,10 +57,10 @@ function ReviewPage({ id }: { id: number }) {
       </div>
     );
   }
-  return <Loaded detail={state.data} reload={reload} />;
+  return <Loaded detail={state.data} />;
 }
 
-function Loaded({ detail, reload }: { detail: ReviewDetail; reload: () => void }) {
+function Loaded({ detail }: { detail: ReviewDetail }) {
   const r = detail;
   return (
     <div className="content cols-2">
@@ -91,11 +91,7 @@ function Loaded({ detail, reload }: { detail: ReviewDetail; reload: () => void }
       </section>
       <aside aria-labelledby="reply-title">
         <h2 id="reply-title">Reply</h2>
-        {r.can_reply ? (
-          <ReplyEditor id={r.id} initial={r.reply} onConflict={reload} />
-        ) : (
-          <ReadOnlyReply detail={r} />
-        )}
+        {r.can_reply ? <ReplyEditor id={r.id} initial={r.reply} /> : <ReadOnlyReply detail={r} />}
       </aside>
     </div>
   );
@@ -131,15 +127,7 @@ function RepliedNote({ reply }: { reply: Reply }) {
   );
 }
 
-function ReplyEditor({
-  id,
-  initial,
-  onConflict,
-}: {
-  id: number;
-  initial: Reply | null;
-  onConflict: () => void;
-}) {
+function ReplyEditor({ id, initial }: { id: number; initial: Reply | null }) {
   const fieldId = useId();
   const [reply, setReply] = useState<Reply | null>(initial);
   const [text, setText] = useState(initial?.reply_text ?? "");
@@ -158,13 +146,15 @@ function ReplyEditor({
     }
     let live = true;
     let tries = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const ask = () => {
+      if (!live) return;
       tries += 1;
       draftReply(id).then(
         (r) => {
           if (!live) return;
           if (r.status === "drafting" && tries < 25) {
-            setTimeout(ask, 2000);
+            timer = setTimeout(ask, 2000);
             return;
           }
           setReply(r);
@@ -174,6 +164,9 @@ function ReplyEditor({
         (err: unknown) => {
           if (!live) return;
           setFailure(asApiError(err));
+          // A drafting row from the first load is gone once the claim is
+          // released, so a hand-written save must not be based on it.
+          setReply((prev) => (prev?.status === "drafting" ? null : prev));
           setDrafting("unavailable");
         },
       );
@@ -181,8 +174,29 @@ function ReplyEditor({
     ask();
     return () => {
       live = false;
+      clearTimeout(timer);
     };
   }, [id, drafting]);
+
+  // After a conflict, fetch the stored reply again but keep the typed text,
+  // so the manager can compare and save on top of the newer version.
+  async function refresh() {
+    setBusy(true);
+    try {
+      const fresh = await getReview(id);
+      setReply(fresh.reply);
+      setFailure(null);
+      setSaved(
+        fresh.reply?.status === "replied"
+          ? ""
+          : "Reloaded the stored reply. Your text is kept; save again to replace it.",
+      );
+    } catch (err) {
+      setFailure(asApiError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function act(kind: "save" | "replied") {
     setBusy(true);
@@ -192,6 +206,7 @@ function ReplyEditor({
       let base = reply;
       if (kind === "replied" && base === null) {
         base = await saveReply(id, text, null); // a hand-written reply is stored first
+        setReply(base); // a retry after a failed approval builds on it
       }
       const next =
         kind === "save"
@@ -254,7 +269,12 @@ function ReplyEditor({
       {conflict && (
         <div className="error" role="alert">
           <p>{failure?.message}</p>
-          <button className="btn btn-secondary btn-small" type="button" onClick={onConflict}>
+          <button
+            className="btn btn-secondary btn-small"
+            type="button"
+            disabled={busy}
+            onClick={refresh}
+          >
             Reload the reply
           </button>
         </div>

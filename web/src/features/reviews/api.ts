@@ -43,6 +43,13 @@ export async function listThemes(): Promise<Theme[]> {
 }
 
 const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+
+// isDate accepts only a real calendar date (no 2026-13-45).
+function isDate(v: string | null): v is string {
+  if (!v || !dateRe.test(v)) return false;
+  const d = new Date(`${v}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
+}
 const sentiments = ["positive", "neutral", "negative"] as const;
 const replies = ["none", "draft", "replied"] as const;
 
@@ -53,7 +60,7 @@ export function readFilters(p: URLSearchParams): Filters {
   const q = p.get("q")?.trim();
   if (q) f.q = q.slice(0, 200);
   const outlet = Number(p.get("outlet"));
-  if (Number.isInteger(outlet) && outlet > 0) f.outlet = outlet;
+  if (Number.isSafeInteger(outlet) && outlet > 0 && outlet <= 2147483647) f.outlet = outlet;
   const theme = p.get("theme");
   if (theme && /^[a-z][a-z0-9_]*$/.test(theme)) f.theme = theme;
   const s = p.get("sentiment");
@@ -64,9 +71,9 @@ export function readFilters(p: URLSearchParams): Filters {
   const reply = replies.find((x) => x === r);
   if (reply) f.reply = reply;
   const from = p.get("from");
-  if (from && dateRe.test(from)) f.from = from;
+  if (isDate(from)) f.from = from;
   const to = p.get("to");
-  if (to && dateRe.test(to)) f.to = to;
+  if (isDate(to)) f.to = to;
   return f;
 }
 
