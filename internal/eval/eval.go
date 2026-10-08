@@ -190,10 +190,10 @@ func Measure(set []Labelled, got map[int64]tagging.Result) Metrics {
 func pct(f float64) string { return fmt.Sprintf("%.0f%%", f*100) }
 
 // Report writes the Markdown report (AC-US-02-004-1 to -6).
-func Report(m Metrics, prompt prompts.Version, mode gateway.Mode, calls int) string {
+func Report(m Metrics, prompt prompts.Version, model string, mode gateway.Mode, calls int) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# Tagging evaluation\n\nModel %s, tagging prompt v%d, gateway mode %s, %d calls. %d reviews, %d unresolved (counted as tagged with nothing).\n\n",
-		gateway.Model, prompt.Number, mode, calls, m.Reviews, m.Unresolved)
+		model, prompt.Number, mode, calls, m.Reviews, m.Unresolved)
 	verdict := "FAILED"
 	if m.Passed {
 		verdict = "PASSED"

@@ -153,7 +153,7 @@ func writeUsers(ctx context.Context, st *store.Store, path string) error {
 // holds, with the operator's gateway mode. A missing recording fails the
 // seed rather than calling the model (tenet 5).
 func tagAll(ctx context.Context, cfg config.Config, st *store.Store, logger *slog.Logger) error {
-	gw, err := gateway.New(gateway.Config{Mode: cfg.GatewayMode, APIKey: cfg.OpenRouterKey, RecordingsDir: cfg.RecordingsDir, Store: st, Logger: logger})
+	gw, err := gateway.New(gateway.Config{Mode: cfg.GatewayMode, Model: cfg.ModelID, APIKey: cfg.OpenRouterKey, RecordingsDir: cfg.RecordingsDir, Store: st, Logger: logger})
 	if err != nil {
 		return err
 	}

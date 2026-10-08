@@ -34,6 +34,9 @@ type Config struct {
 	// GatewayMode is live, record or replay; unset means replay, so nothing
 	// spends money unless the operator chooses it (phase 2 LLD section 7).
 	GatewayMode gateway.Mode
+	// ModelID is the OpenRouter model for every call; empty is the gateway
+	// default, Claude Haiku 4.5 (ADR-0009).
+	ModelID string
 	// OpenRouterKey is required in live and record mode. Never log it.
 	OpenRouterKey string
 	// RecordingsDir is where record writes and replay reads.
@@ -97,6 +100,7 @@ func Load() (Config, error) {
 	} else {
 		c.GatewayMode = mode
 	}
+	c.ModelID = strings.TrimSpace(os.Getenv("MODEL_ID"))
 	c.OpenRouterKey = os.Getenv("OPENROUTER_API_KEY")
 	if (c.GatewayMode == gateway.Live || c.GatewayMode == gateway.Record) && c.OpenRouterKey == "" {
 		problems = append(problems, "OPENROUTER_API_KEY is required when MODEL_GATEWAY_MODE is live or record")

@@ -63,7 +63,7 @@ func draft(out string) error {
 		return err
 	}
 	defer st.Close()
-	gw, err := gateway.New(gateway.Config{Mode: cfg.GatewayMode, APIKey: cfg.OpenRouterKey, RecordingsDir: cfg.RecordingsDir, Store: st})
+	gw, err := gateway.New(gateway.Config{Mode: cfg.GatewayMode, Model: cfg.ModelID, APIKey: cfg.OpenRouterKey, RecordingsDir: cfg.RecordingsDir, Store: st})
 	if err != nil {
 		return err
 	}
@@ -104,7 +104,7 @@ func draft(out string) error {
 	if err != nil {
 		return err
 	}
-	if err := tonecheck.Write(f, drafts, prompt, gateway.Model); err != nil {
+	if err := tonecheck.Write(f, drafts, prompt, gw.ModelID()); err != nil {
 		_ = f.Close()
 		return err
 	}

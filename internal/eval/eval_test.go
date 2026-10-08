@@ -39,7 +39,7 @@ func TestRunAndMeasure_FailsTheGateAndListsMisses(t *testing.T) {
 	if m.SentimentAccuracy != 0.75 || m.NegRecall != 2.0/3.0 || m.Theme["food"] != [2]float64{1, 1} {
 		t.Fatalf("sentiment and themes = %+v", m)
 	}
-	r := Report(m, v1, gateway.Replay, calls)
+	r := Report(m, v1, gateway.Model, gateway.Replay, calls)
 	for _, want := range []string{"Urgent gate: FAILED", "tagging prompt v1", gateway.Model, "- 2 (legal_threat): I will take you to consumer court"} {
 		if !strings.Contains(r, want) {
 			t.Errorf("report lacks %q:\n%s", want, r)

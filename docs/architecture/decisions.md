@@ -17,6 +17,7 @@ The technology key log is docs/decisions.md (kept by `tech-decision`); this file
 | ADR-0006 | Run tagging in the Go server, driven by untagged reviews | messaging | Accepted | cheap: a job table adds rows and a claim step |
 | ADR-0007 | Use a signed JWT in an HttpOnly cookie for sign-in | auth | Accepted | cheap: changes the sign-in handler and request check only |
 | ADR-0008 | Tag reviews and draft replies with prompt-only calls to Claude Haiku 4.5 | llm approach | Accepted | cheap: a new approach is a new prompt version and parser |
+| ADR-0009 | Allow one configured model in place of Claude Haiku 4.5 | llm approach | Accepted | cheap: unset MODEL_ID |
 
 ## Conflicts that were settled
 

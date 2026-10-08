@@ -7,9 +7,9 @@ import (
 	"github.com/manikorimilli/outlet-owl/prompts"
 )
 
-// Model is the one model every call uses: Claude Haiku 4.5 under OpenRouter's
-// identifier, with no fallback (Q-016, AC-US-02-001-7). Checked against
-// OpenRouter's model list before the first live call (phase 2 LLD section 10).
+// Model is the default model every call uses: Claude Haiku 4.5 under
+// OpenRouter's identifier, with no fallback (Q-016, AC-US-02-001-7). MODEL_ID
+// replaces it for every call (ADR-0009); there is still one model per run.
 const Model = "anthropic/claude-haiku-4.5"
 
 // MaxTokensCap is the most any request asks for (REQ-032).
@@ -108,11 +108,11 @@ func clampMaxTokens(n int) int {
 	return n
 }
 
-// buildBody returns the request body and the max_tokens it carries.
-func buildBody(r Request) ([]byte, int, error) {
+// buildBody returns the request body for model and the max_tokens it carries.
+func buildBody(r Request, model string) ([]byte, int, error) {
 	maxTokens := clampMaxTokens(r.Prompt.MaxTokens)
 	body, err := json.Marshal(chatBody{
-		Model: Model,
+		Model: model,
 		Messages: []message{
 			{Role: "system", Content: r.Prompt.Text},
 			{Role: "user", Content: r.User},

@@ -16,7 +16,7 @@ func request() Request {
 
 func decodeBody(t *testing.T, r Request) chatBody {
 	t.Helper()
-	body, _, err := buildBody(r)
+	body, _, err := buildBody(r, Model)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,14 +57,14 @@ func TestBody_SendsTheHaikuModelWithTheSystemPrompt(t *testing.T) {
 }
 
 func TestBody_OmitsTemperatureWhenUnset(t *testing.T) {
-	body, _, _ := buildBody(request())
+	body, _, _ := buildBody(request(), Model)
 	if strings.Contains(string(body), "temperature") {
 		t.Fatalf("body %s carries a temperature the version did not set", body)
 	}
 	zero := 0.0
 	r := request()
 	r.Prompt.Temperature = &zero
-	if body, _, _ := buildBody(r); !strings.Contains(string(body), `"temperature":0`) {
+	if body, _, _ := buildBody(r, Model); !strings.Contains(string(body), `"temperature":0`) {
 		t.Fatalf("body %s lacks temperature 0", body)
 	}
 }
@@ -84,5 +84,22 @@ func TestParseMode_EmptyIsReplay(t *testing.T) {
 	}
 	if _, err := ParseMode("Live"); err == nil {
 		t.Fatal("an unknown mode must be refused")
+	}
+}
+
+// ADR-0009: MODEL_ID replaces the default for every call, and changes the
+// body, so a recording made for one model never answers for another.
+func TestBody_UsesTheConfiguredModel(t *testing.T) {
+	haiku, _, _ := buildBody(request(), Model)
+	free, _, _ := buildBody(request(), "apodex/apodex-1.1-mini:free")
+	var cb chatBody
+	if err := json.Unmarshal(free, &cb); err != nil || cb.Model != "apodex/apodex-1.1-mini:free" {
+		t.Fatalf("model = %q, %v", cb.Model, err)
+	}
+	if string(haiku) == string(free) {
+		t.Fatal("bodies for two models are equal; their recordings would collide")
+	}
+	if g, _ := New(Config{Mode: Replay}); g.ModelID() != Model {
+		t.Fatalf("default model = %q, want %q", g.ModelID(), Model)
 	}
 }

@@ -215,6 +215,7 @@ func loadUsers(ctx context.Context, logger *slog.Logger, st *store.Store, path s
 func startGateway(ctx context.Context, logger *slog.Logger, st *store.Store, cfg config.Config) (*gateway.Gateway, error) {
 	gw, err := gateway.New(gateway.Config{
 		Mode:          cfg.GatewayMode,
+		Model:         cfg.ModelID,
 		APIKey:        cfg.OpenRouterKey,
 		RecordingsDir: cfg.RecordingsDir,
 		Store:         st,

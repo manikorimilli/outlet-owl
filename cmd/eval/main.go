@@ -52,7 +52,7 @@ func run(setPath, out string) (int, error) {
 		return 2, err
 	}
 	defer st.Close()
-	gw, err := gateway.New(gateway.Config{Mode: cfg.GatewayMode, APIKey: cfg.OpenRouterKey, RecordingsDir: cfg.RecordingsDir, Store: st})
+	gw, err := gateway.New(gateway.Config{Mode: cfg.GatewayMode, Model: cfg.ModelID, APIKey: cfg.OpenRouterKey, RecordingsDir: cfg.RecordingsDir, Store: st})
 	if err != nil {
 		return 2, err
 	}
@@ -69,7 +69,7 @@ func run(setPath, out string) (int, error) {
 		return 2, fmt.Errorf("after %d calls: %w", calls, err)
 	}
 	m := eval.Measure(set, got)
-	report := eval.Report(m, prompt, gw.Mode(), calls)
+	report := eval.Report(m, prompt, gw.ModelID(), gw.Mode(), calls)
 	fmt.Print(report)
 	if out != "" {
 		if err := os.WriteFile(out, []byte(report), 0o644); err != nil {
