@@ -4,6 +4,7 @@ import { SignInPage } from "../features/auth/SignInPage";
 import { ImportPage } from "../features/imports/ImportPage";
 import { OutletsPage } from "../features/outlets/OutletsPage";
 import { OverviewPage } from "../features/overview/OverviewPage";
+import { ReviewRoute } from "../features/reply/ReviewPage";
 import { ReviewsPage } from "../features/reviews/ReviewsPage";
 import { ThemesPage } from "../features/themes/ThemesPage";
 import { RequireRole, RequireSession } from "./session";
@@ -17,6 +18,7 @@ export function AppRoutes() {
         <Route element={<AppShell />}>
           <Route index element={<OverviewPage />} />
           <Route path="/reviews" element={<ReviewsPage />} />
+          <Route path="/reviews/:id" element={<ReviewRoute />} />
           <Route path="/themes" element={<ThemesPage />} />
           <Route element={<RequireRole role="brand_admin" />}>
             <Route path="/outlets" element={<OutletsPage />} />

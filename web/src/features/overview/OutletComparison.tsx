@@ -26,6 +26,9 @@ export function OutletComparison({ trends }: { trends: Trends }) {
               Negative
             </th>
             <th scope="col">12 weeks</th>
+            <th scope="col" className="num">
+              Replied
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -64,6 +67,7 @@ export function OutletComparison({ trends }: { trends: Trends }) {
                     label={`${outlet.name} negative share over 12 weeks, ${pct(firstShare)} to ${pct(last ? negativeShare(last) : null)}`}
                   />
                 </td>
+                <td className="num">{last ? `${last.replied}/${last.review_count}` : "none"}</td>
               </tr>
             );
           })}

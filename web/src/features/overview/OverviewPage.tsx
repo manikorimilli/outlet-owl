@@ -212,6 +212,7 @@ export function OverviewPage() {
                   {r.outlet.name}, {formatDate(r.review_date)}
                 </p>
                 <p className="review-text clamp">{r.review_text}</p>
+                <Link to={`/reviews/${r.id}`}>Open review {r.id}</Link>
               </li>
             ))}
           </ul>

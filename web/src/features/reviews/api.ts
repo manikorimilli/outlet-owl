@@ -14,6 +14,7 @@ export type Filters = {
   theme?: string;
   sentiment?: "positive" | "neutral" | "negative";
   urgent?: boolean;
+  reply?: "none" | "draft" | "replied";
   from?: string;
   to?: string;
 };
@@ -25,6 +26,7 @@ export function apiQuery(f: Filters, cursor?: string): string {
   if (f.theme) p.set("filter[theme]", f.theme);
   if (f.sentiment) p.set("filter[sentiment]", f.sentiment);
   if (f.urgent) p.set("filter[is_urgent]", "true");
+  if (f.reply) p.set("filter[reply_status]", f.reply);
   if (f.from) p.set("filter[review_date][gte]", f.from);
   if (f.to) p.set("filter[review_date][lte]", f.to);
   if (cursor) p.set("cursor", cursor);
@@ -42,6 +44,7 @@ export async function listThemes(): Promise<Theme[]> {
 
 const dateRe = /^\d{4}-\d{2}-\d{2}$/;
 const sentiments = ["positive", "neutral", "negative"] as const;
+const replies = ["none", "draft", "replied"] as const;
 
 // readFilters parses each URL parameter on its own: a bad value drops only
 // itself, never the whole page (a pasted or old link still works).
@@ -57,6 +60,9 @@ export function readFilters(p: URLSearchParams): Filters {
   const sentiment = sentiments.find((x) => x === s);
   if (sentiment) f.sentiment = sentiment;
   if (p.get("urgent") === "true") f.urgent = true;
+  const r = p.get("reply");
+  const reply = replies.find((x) => x === r);
+  if (reply) f.reply = reply;
   const from = p.get("from");
   if (from && dateRe.test(from)) f.from = from;
   const to = p.get("to");
@@ -71,6 +77,7 @@ export function writeFilters(f: Filters): URLSearchParams {
   if (f.theme) p.set("theme", f.theme);
   if (f.sentiment) p.set("sentiment", f.sentiment);
   if (f.urgent) p.set("urgent", "true");
+  if (f.reply) p.set("reply", f.reply);
   if (f.from) p.set("from", f.from);
   if (f.to) p.set("to", f.to);
   return p;

@@ -1,5 +1,13 @@
+import { Link } from "react-router";
 import { formatDate, reasonLabels, sentimentLabels } from "../../lib/format";
 import type { ReviewSummary, Theme } from "./api";
+
+const replyLabels: Record<string, string> = {
+  none: "Not replied",
+  drafting: "Drafting",
+  draft: "Draft ready",
+  replied: "Replied",
+};
 
 // ReviewTable lists reviews newest first. Review text and names are rendered
 // as text (tenet 6); urgent reviews carry a red label with the word.
@@ -27,12 +35,17 @@ export function ReviewTable({
             <th scope="col">Review</th>
             <th scope="col">Themes</th>
             <th scope="col">Sentiment</th>
+            <th scope="col">Reply</th>
           </tr>
         </thead>
         <tbody>
           {reviews.map((r) => (
             <tr key={r.id}>
-              <td className="nowrap">{formatDate(r.review_date)}</td>
+              <td className="nowrap">
+                <Link to={`/reviews/${r.id}`} aria-label={`Open review ${r.id}`}>
+                  {formatDate(r.review_date)}
+                </Link>
+              </td>
               {showOutlet && <td>{r.outlet.name}</td>}
               <td className="num">{r.rating}/5</td>
               <td className="review-cell">
@@ -62,6 +75,7 @@ export function ReviewTable({
                   <span className="muted">Not tagged yet</span>
                 )}
               </td>
+              <td>{replyLabels[r.reply_status]}</td>
             </tr>
           ))}
         </tbody>

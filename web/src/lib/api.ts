@@ -51,7 +51,7 @@ export function setUnauthorizedHandler(handler: (() => void) | undefined): void 
 }
 
 type Init = {
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "PUT";
   body?: unknown;
   // form is sent as multipart/form-data; the browser sets the boundary.
   form?: FormData;

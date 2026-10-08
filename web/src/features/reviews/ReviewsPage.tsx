@@ -26,8 +26,7 @@ type More = {
 };
 
 // ReviewsPage is S-04: search and filters kept in the URL, a ruled table, and
-// a "Load more" button over the API's cursor. The Reply filter and column
-// arrive with replies in phase 5.
+// a "Load more" button over the API's cursor.
 export function ReviewsPage() {
   const { session } = useSession();
   const me = session.status === "signed-in" ? session.me : null;
@@ -181,6 +180,20 @@ export function ReviewsPage() {
                 <option value="positive">Positive</option>
                 <option value="neutral">Neutral</option>
                 <option value="negative">Negative</option>
+              </select>
+            </label>
+            <label>
+              Reply
+              <select
+                value={filters.reply ?? ""}
+                onChange={(e) =>
+                  update({ ...filters, reply: (e.target.value || undefined) as Filters["reply"] })
+                }
+              >
+                <option value="">Any</option>
+                <option value="none">Not replied</option>
+                <option value="draft">Draft ready</option>
+                <option value="replied">Replied</option>
               </select>
             </label>
             <label className="check">
