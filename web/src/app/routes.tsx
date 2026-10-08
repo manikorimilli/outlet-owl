@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router";
 import { AppShell } from "../components/AppShell";
 import { OverviewPlaceholder } from "../components/OverviewPlaceholder";
 import { SignInPage } from "../features/auth/SignInPage";
+import { ImportPage } from "../features/imports/ImportPage";
 import { OutletsPage } from "../features/outlets/OutletsPage";
 import { RequireRole, RequireSession } from "./session";
 
@@ -15,6 +16,7 @@ export function AppRoutes() {
           <Route index element={<OverviewPlaceholder />} />
           <Route element={<RequireRole role="brand_admin" />}>
             <Route path="/outlets" element={<OutletsPage />} />
+            <Route path="/import" element={<ImportPage />} />
           </Route>
         </Route>
       </Route>

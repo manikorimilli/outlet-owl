@@ -649,3 +649,26 @@ table.data td.num {
     animation: none;
   }
 }
+
+/* ---------------------------------------------------------------- import (S-07): three counts, the rejected rows */
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+}
+.facts dt {
+  font-size: var(--text-label);
+  color: var(--color-text-muted);
+}
+.facts dd {
+  margin: 0;
+}
+.big {
+  font-size: var(--text-stat);
+  font-weight: var(--weight-stat);
+  line-height: 1.1;
+}
+.notice.info {
+  background: var(--color-accent-subtle);
+}
