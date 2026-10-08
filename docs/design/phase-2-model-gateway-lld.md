@@ -84,13 +84,13 @@ Prompt files: `prompts/<name>/v<N>.md` and `prompts/<name>/current`. A version f
 Request body sent to `POST {BaseURL}/chat/completions`, marshalled from a Go struct so the field order is fixed (the recording key depends on the exact bytes):
 
 ```json
-{"model":"anthropic/claude-haiku-4.5","messages":[{"role":"system","content":"<prompt text>"},{"role":"user","content":"<User>"}],"max_tokens":1000,"temperature":0}
+{"model":"anthropic/claude-haiku-4.5","messages":[{"role":"system","content":"<prompt text>"},{"role":"user","content":"<User>"}],"max_tokens":1000,"temperature":0,"reasoning":{"enabled":false}}
 ```
 
 - `model` is a constant in `request.go`, never configuration: one model, no fallback (Q-016, AC-US-02-001-7).
 - `max_tokens` is the prompt version's value, clamped to 1000; a zero value becomes 1000 (AC-US-02-001-3).
 - `temperature` is left out when the version sets none.
-- No `reasoning` field: thinking stays off (GenAI section 5).
+- `"reasoning": {"enabled": false}` on every request: thinking stays off (GenAI section 5). Changed by ADR-0009: a reasoning model otherwise spends the 1000-token cap thinking.
 
 Response fields read: `choices[0].message.content`, `choices[0].finish_reason`, `usage.prompt_tokens`, `usage.completion_tokens`, `usage.cost` (decoded as `json.Number`, so no float rounding). The body is read through a 1 MiB limit.
 
@@ -285,7 +285,7 @@ One log line per model call (HLD section 10): `model call` with `purpose`, `prom
 | `OPENROUTER_API_KEY` | none | required when the mode is `live` or `record`: the server refuses to start without it. Ignored in `replay`. Never logged, never in CI (ADR-0004) |
 | `MODEL_RECORDINGS_DIR` | `testdata/recordings` | relative to the working directory; `record` creates `{purpose}/` under it; `replay` reports a missing file with its full path |
 
-Constants in code, not configuration: the model `anthropic/claude-haiku-4.5` (Q-016), the base URL `https://openrouter.ai/api/v1`, the limit USD 8 (REQ-031), the cap of 1000 tokens (REQ-032), the 30 s attempt timeout and the 2 s and 4 s backoff (HLD section 8), and the prices of USD 1 and USD 5 per million tokens (GenAI section 5). Tests set the timeout, the backoff and the base URL through `gateway.Config`; no environment variable exists for them.
+Constants in code, not configuration: the default model `anthropic/claude-haiku-4.5` (Q-016; `MODEL_ID` replaces it for a run, ADR-0009), the base URL `https://openrouter.ai/api/v1`, the limit USD 8 (REQ-031), the cap of 1000 tokens (REQ-032), the 30 s attempt timeout and the 2 s and 4 s backoff (HLD section 8), and the prices of USD 1 and USD 5 per million tokens (GenAI section 5). Tests set the timeout, the backoff and the base URL through `gateway.Config`; no environment variable exists for them, except `MODEL_ID` for the model.
 
 Missing from `.env.example` today: all three. Item G7 adds `MODEL_GATEWAY_MODE=replay`, an empty `OPENROUTER_API_KEY=`, and `MODEL_RECORDINGS_DIR=testdata/recordings`, unquoted because none holds a space (the file is sourced as shell). It also replaces the commented `OPENROUTER_API_KEY` placeholder line.
 

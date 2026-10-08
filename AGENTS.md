@@ -17,15 +17,17 @@ holds the documents and both apps (docs/architecture/repo-plan.json):
 | Runtime services | `docker-compose.yml` | PostgreSQL 16 and MailHog, nothing else (PRD section 6) |
 | Planning | `docs/` | PRD, backlog, ADRs, HLD, data model, screens, GenAI design |
 
-The skeleton serves only `GET /api/v1/health`. Product features arrive story
-by story from `docs/product/backlog.md`.
+Build phases 1 to 7 of the HLD are built: sign-in, outlets, CSV import and
+tagging, the dashboard and search, replies, the digest, and the seed,
+evaluation and tone-check commands; the Go binary serves the UI from
+`web/dist`. New work comes story by story from `docs/product/backlog.md`.
 
 ## Ground rules
 
 Breaking one gets the change rejected, whatever else it does.
 
 1. Never commit to `main`. Work on a branch named `<type>/<short-name>`
-   (`docs/data-model`, `chore/repo-setup`); there are no task ids yet.
+   (`docs/data-model`, `chore/repo-setup`); there are no task ids yet. <!-- docs-drift: ignore (branch names, not paths) -->
 2. Never push, merge, tag or deploy. Prepare the command and hand it to the
    engineer, who pushes and fast-forwards `main` by hand.
 3. Never commit a secret, key or `.env` file, and never read one into context.
@@ -55,8 +57,14 @@ Breaking one gets the change rejected, whatever else it does.
   also applies the budget set (`db/migrations/budget`), which has no Down and
   is never rolled back. `MODEL_GATEWAY_MODE` defaults to `replay`, which
   answers only from `testdata/recordings` and spends nothing; `live` and
-  `record` need `OPENROUTER_API_KEY` and spend real budget.
-- Accounts: `cp users.example.json users.json` (ignored by git), then replace
+  `record` need `OPENROUTER_API_KEY` and spend real budget. `MODEL_ID` picks
+  the OpenRouter model; empty is Claude Haiku 4.5 (ADR-0009).
+- Demo data: `make seed` resets the domain tables, writes `users.json` (one
+  brand admin, one manager per outlet, password `outletowl-demo` unless
+  `SEED_PASSWORD` is set) and tags 1,500 reviews; it overwrites both.
+  `SEED_ARGS="-tag=false"` skips tagging, `SEED_ARGS="-reviews=500"` seeds a
+  smaller set.
+- Accounts by hand: `cp users.example.json users.json` (ignored by git), then replace
   each `password_hash` with the output of `make hash-password`. Start with the
   admin entry only: a manager entry naming an outlet that does not exist yet
   is skipped with a warning. Add the outlets as the admin, then the manager
@@ -71,7 +79,8 @@ Breaking one gets the change rejected, whatever else it does.
 - Outside the gate: `make build`, `make test-integration` (needs `make db`
   and goose; each package gets its own database), `make vuln` (needs the
   network), `make migrate`, `make sqlc`, `make web-api-types`, `make fix`,
-  `make doctor`.
+  `make doctor`, `make seed`, `make eval` (needs the 100 labelled reviews; phase 7 LLD)
+  and `make tone-check`.
 - Toolchain: Go 1.26.8; sqlc v1.31.1, goose v3.28.0, golangci-lint v2.13.2 and
   govulncheck v1.8.0 installed with `go install` into `$(go env GOPATH)/bin`
   (the Makefile puts it on PATH); Node 24 (`web/.nvmrc`, run `nvm use` in
