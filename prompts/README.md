@@ -25,5 +25,5 @@ Rules:
 - A new version makes the recordings for that prompt stale: record again,
   deliberately (`MODEL_GATEWAY_MODE=record`).
 
-`tagging/` arrives with build phase 3 and `reply/` with phase 5; each adds the
-`//go:embed` that feeds `Parse`.
+`tagging/` shipped with build phase 3; `reply/` arrives with phase 5 and joins the
+`//go:embed` in `embed.go`.

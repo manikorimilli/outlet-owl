@@ -11,13 +11,13 @@ function navLinks() {
 }
 
 describe("AppShell", () => {
-  it("the brand admin sees Overview and Outlets in the nav", async () => {
+  it("the brand admin sees Overview, Outlets and Import in the nav", async () => {
     stubFetch({ "GET /api/v1/me": { status: 200, body: adminMe } });
 
     renderApp("/outlets");
 
     await screen.findByRole("navigation", { name: "Sections" });
-    expect(navLinks()).toEqual(["Overview", "Outlets"]);
+    expect(navLinks()).toEqual(["Overview", "Outlets", "Import"]);
     expect(screen.getByRole("link", { name: "Outlets" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Overview" })).not.toHaveAttribute("aria-current");
   });

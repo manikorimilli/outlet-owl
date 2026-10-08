@@ -44,6 +44,10 @@ type Outlet struct {
 	ID        int64
 	Name      string
 	CreatedAt time.Time
+	// ReviewCount and UntaggedCount are the outlet's reviews and those with
+	// no stored tag result yet (OutletSummary in the API).
+	ReviewCount   int
+	UntaggedCount int
 }
 
 // Manager is an active outlet manager of one outlet.
@@ -57,10 +61,6 @@ type Manager struct {
 type Summary struct {
 	Outlet
 	Managers []Manager
-	// ReviewCount and UntaggedCount stay 0 until the reviews table exists
-	// (build phase 3).
-	ReviewCount   int
-	UntaggedCount int
 }
 
 // Store reads and writes outlets. CreateOutlet reports created false when

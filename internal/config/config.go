@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,6 +38,9 @@ type Config struct {
 	OpenRouterKey string
 	// RecordingsDir is where record writes and replay reads.
 	RecordingsDir string
+	// TaggingEnabled is the operator switch for the tagging worker; false
+	// keeps it paused (HLD section 12).
+	TaggingEnabled bool
 }
 
 // Load reads and validates the environment.
@@ -92,6 +96,11 @@ func Load() (Config, error) {
 		problems = append(problems, "OPENROUTER_API_KEY is required when MODEL_GATEWAY_MODE is live or record")
 	}
 	c.RecordingsDir = envOr("MODEL_RECORDINGS_DIR", "testdata/recordings")
+	if on, err := strconv.ParseBool(envOr("TAGGING_ENABLED", "true")); err != nil {
+		problems = append(problems, "TAGGING_ENABLED must be true or false")
+	} else {
+		c.TaggingEnabled = on
+	}
 	if len(problems) > 0 {
 		return Config{}, fmt.Errorf("config: %s", strings.Join(problems, "; "))
 	}

@@ -23,6 +23,7 @@ type Deps struct {
 	DB      Pinger
 	Auth    Authenticator
 	Outlets OutletService
+	Imports ImportService
 	Brand   Brand
 }
 
@@ -38,6 +39,7 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("GET /api/v1/me", me(d))
 	mux.HandleFunc("GET /api/v1/outlets", listOutlets(d))
 	mux.HandleFunc("POST /api/v1/outlets", createOutlet(d))
+	mux.HandleFunc("POST /api/v1/imports", createImport(d))
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, r, http.StatusNotFound, "not_found", "No such route.")
 	})

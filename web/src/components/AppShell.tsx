@@ -5,8 +5,8 @@ import { logout, type Me } from "../features/auth/api";
 
 type NavItem = { to: string; label: string; icon: string };
 
-// Only built routes appear; later phases add Reviews, Themes, Import and
-// Digest (web LLD section 3). Icon paths come from the S-06 mockup.
+// Only built routes appear; later phases add Reviews, Themes and Digest
+// (web LLD section 3). Icon paths come from the S-06 and S-07 mockups.
 const overview: NavItem = { to: "/", label: "Overview", icon: "M4 20V10M10 20V4M16 20v-7M22 20H2" };
 const outlets: NavItem = {
   to: "/outlets",
@@ -14,8 +14,14 @@ const outlets: NavItem = {
   icon: "M3 9l2-5h14l2 5M4 9v11h16V9M9 20v-6h6v6",
 };
 
+const importNav: NavItem = {
+  to: "/import",
+  label: "Import",
+  icon: "M12 15V3M7 8l5-5 5 5M4 15v5h16v-5",
+};
+
 function navFor(role: Me["role"]): NavItem[] {
-  return role === "brand_admin" ? [overview, outlets] : [overview];
+  return role === "brand_admin" ? [overview, outlets, importNav] : [overview];
 }
 
 function whoLabel(me: Me): string {

@@ -87,12 +87,49 @@ func (q *Queries) ListActiveManagers(ctx context.Context, outletIds []int64) ([]
 	return items, nil
 }
 
+const listOutletNames = `-- name: ListOutletNames :many
+SELECT id, name
+FROM outlets
+ORDER BY id
+`
+
+type ListOutletNamesRow struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+// Every outlet, for matching the CSV outlet column by name ignoring case.
+// Known full scan, at most about 25 rows.
+func (q *Queries) ListOutletNames(ctx context.Context) ([]ListOutletNamesRow, error) {
+	rows, err := q.db.Query(ctx, listOutletNames)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOutletNamesRow
+	for rows.Next() {
+		var i ListOutletNamesRow
+		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOutlets = `-- name: ListOutlets :many
 
-SELECT id, name, created_at
-FROM outlets
-WHERE ($1::boolean OR id = $2::bigint)
-ORDER BY lower(name), id
+SELECT o.id, o.name, o.created_at,
+       (SELECT count(*) FROM reviews r WHERE r.outlet_id = o.id)::integer AS review_count,
+       (SELECT count(*) FROM reviews r
+        WHERE r.outlet_id = o.id
+          AND NOT EXISTS (SELECT 1 FROM review_tags t WHERE t.review_id = r.id))::integer AS untagged_count
+FROM outlets o
+WHERE ($1::boolean OR o.id = $2::bigint)
+ORDER BY lower(o.name), o.id
 `
 
 type ListOutletsParams struct {
@@ -101,15 +138,19 @@ type ListOutletsParams struct {
 }
 
 type ListOutletsRow struct {
-	ID        int64     `json:"id"`
-	Name      string    `json:"name"`
-	CreatedAt time.Time `json:"created_at"`
+	ID            int64     `json:"id"`
+	Name          string    `json:"name"`
+	CreatedAt     time.Time `json:"created_at"`
+	ReviewCount   int32     `json:"review_count"`
+	UntaggedCount int32     `json:"untagged_count"`
 }
 
 // Outlets: the list and the add form (phase 1 server LLD, section 5).
 // The caller's outlets: every outlet for the brand admin (all_outlets), else
 // the manager's one outlet. The scope is an explicit boolean plus an id, never
 // "null means all" (tenet 3). Known full scan, at most about 25 rows.
+// The two counts read reviews by outlet (idx_reviews_outlet_id_review_date)
+// and the untagged anti-join (review_tags_pkey).
 func (q *Queries) ListOutlets(ctx context.Context, arg ListOutletsParams) ([]ListOutletsRow, error) {
 	rows, err := q.db.Query(ctx, listOutlets, arg.AllOutlets, arg.OutletID)
 	if err != nil {
@@ -119,7 +160,13 @@ func (q *Queries) ListOutlets(ctx context.Context, arg ListOutletsParams) ([]Lis
 	var items []ListOutletsRow
 	for rows.Next() {
 		var i ListOutletsRow
-		if err := rows.Scan(&i.ID, &i.Name, &i.CreatedAt); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.CreatedAt,
+			&i.ReviewCount,
+			&i.UntaggedCount,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

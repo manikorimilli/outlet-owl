@@ -100,6 +100,49 @@ func (ns NullBudgetModelCallPurpose) Value() (driver.Value, error) {
 	return string(ns.BudgetModelCallPurpose), nil
 }
 
+type Sentiment string
+
+const (
+	SentimentPositive Sentiment = "positive"
+	SentimentNeutral  Sentiment = "neutral"
+	SentimentNegative Sentiment = "negative"
+)
+
+func (e *Sentiment) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = Sentiment(s)
+	case string:
+		*e = Sentiment(s)
+	default:
+		return fmt.Errorf("unsupported scan type for Sentiment: %T", src)
+	}
+	return nil
+}
+
+type NullSentiment struct {
+	Sentiment Sentiment `json:"sentiment"`
+	Valid     bool      `json:"valid"` // Valid is true if Sentiment is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullSentiment) Scan(value interface{}) error {
+	if value == nil {
+		ns.Sentiment, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.Sentiment.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullSentiment) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.Sentiment), nil
+}
+
 type UserRole string
 
 const (
@@ -168,6 +211,34 @@ type BudgetModelCall struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// One CSV upload and its result. Serves US-01-002.
+type Import struct {
+	// Surrogate key; reviews record the import that brought them in.
+	ID int64 `json:"id"`
+	// Client-made id; a repeat with the same id returns this result and imports nothing (tenet 8).
+	RequestID pgtype.UUID `json:"request_id"`
+	// Name of the uploaded file, shown with the result.
+	FileName string `json:"file_name"`
+	// Rows stored as new reviews; set before the import commits.
+	ImportedCount int32 `json:"imported_count"`
+	// Rows skipped because the same review was already imported.
+	DuplicateCount int32 `json:"duplicate_count"`
+	// Rows rejected; each is listed in import_rejections.
+	RejectedCount int32 `json:"rejected_count"`
+	// When the import committed.
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// A CSV row an import rejected. Serves US-01-002.
+type ImportRejection struct {
+	// The import that rejected the row.
+	ImportID int64 `json:"import_id"`
+	// Row number in the file, counted as the admin sees it in a spreadsheet.
+	RowNumber int32 `json:"row_number"`
+	// Why the row was rejected, worded so the admin can fix it.
+	Reason string `json:"reason"`
+}
+
 // One location of the brand. Serves US-01-001, US-01-002, US-01-005, US-01-006, US-01-007, US-00-001.
 type Outlet struct {
 	// Surrogate key; reviews and managers reference it.
@@ -178,6 +249,46 @@ type Outlet struct {
 	CreatedAt time.Time `json:"created_at"`
 	// Last change to this row.
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// One customer review of one outlet. Serves US-01-002, US-01-003, US-01-005 to US-01-009, US-00-001, US-00-002, US-02-006.
+type Review struct {
+	// Integer id; the id the tagging batch sends and every result line must carry (tenet 4).
+	ID int64 `json:"id"`
+	// The outlet reviewed, matched from the CSV outlet column; the outlet scope filters on it.
+	OutletID int64 `json:"outlet_id"`
+	// The import that brought the review in; null for reviews the seed command wrote.
+	ImportID *int64 `json:"import_id"`
+	// Where the review was written, as the CSV source column says.
+	Source string `json:"source"`
+	// Calendar date of the review; weeks are Monday to Sunday in the brand timezone.
+	ReviewDate pgtype.Date `json:"review_date"`
+	// Star rating, a whole number from 1 to 5.
+	Rating int16 `json:"rating"`
+	// The review as written, kept unchanged. [personal data]
+	ReviewText string `json:"review_text"`
+	// Name of the person who wrote the review. [personal data]
+	ReviewerName string `json:"reviewer_name"`
+	// When the review was stored.
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// The stored tag result of a review; written once, never re-tagged. Serves US-01-003 to US-01-009, US-02-002.
+type ReviewTag struct {
+	// The review the result line named; one result per review.
+	ReviewID int64 `json:"review_id"`
+	// Theme codes from the configured list; zero, one or several.
+	Themes []string `json:"themes"`
+	// One label: positive, neutral or negative.
+	Sentiment Sentiment `json:"sentiment"`
+	// True when the review concerns food safety, harassment or a legal threat; true exactly when urgent_reasons is not empty.
+	IsUrgent bool `json:"is_urgent"`
+	// Why the review is urgent: food_safety, harassment, legal_threat; several allowed, none repeated, empty when not urgent.
+	UrgentReasons []string `json:"urgent_reasons"`
+	// Number of the tagging prompt version that produced this result.
+	PromptVersion int32 `json:"prompt_version"`
+	// When the result was stored.
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // An account from the users file; one brand admin and outlet managers. Serves US-00-001, US-00-003, US-01-001, US-01-009, US-02-006.

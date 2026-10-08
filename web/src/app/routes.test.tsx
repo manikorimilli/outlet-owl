@@ -14,6 +14,15 @@ describe("the routes", () => {
     expect(screen.queryByRole("heading", { name: "Outlets" })).not.toBeInTheDocument();
   });
 
+  it("RequireRole sends an outlet manager from /import to /", async () => {
+    stubFetch({ "GET /api/v1/me": { status: 200, body: managerMe } });
+
+    renderApp("/import");
+
+    expect(await screen.findByRole("heading", { name: "Overview" })).toBeInTheDocument();
+    expect(screen.getByTestId("location").textContent).toBe("/");
+  });
+
   it("the brand admin reaches /outlets", async () => {
     stubFetch({ "GET /api/v1/me": { status: 200, body: adminMe } });
 

@@ -53,13 +53,16 @@ export function setUnauthorizedHandler(handler: (() => void) | undefined): void 
 type Init = {
   method?: "GET" | "POST";
   body?: unknown;
+  // form is sent as multipart/form-data; the browser sets the boundary.
+  form?: FormData;
+  headers?: Record<string, string>;
 };
 
 // apiFetch calls the API and returns the parsed body, undefined for 204. The
 // caller names the type from api-types.ts; the server is the authority on it.
 export async function apiFetch<T>(path: string, init: Init = {}): Promise<T> {
-  const headers: Record<string, string> = { Accept: "application/json" };
-  let body: string | undefined;
+  const headers: Record<string, string> = { ...init.headers, Accept: "application/json" };
+  let body: string | FormData | undefined = init.form;
   if (init.body !== undefined) {
     headers["Content-Type"] = "application/json";
     body = JSON.stringify(init.body);
