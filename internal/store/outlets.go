@@ -22,7 +22,8 @@ func (s *Store) ListOutlets(ctx context.Context, scope auth.Scope) ([]outlets.Ou
 	}
 	out := make([]outlets.Outlet, len(rows))
 	for i, r := range rows {
-		out[i] = outlets.Outlet{ID: r.ID, Name: r.Name, CreatedAt: r.CreatedAt}
+		out[i] = outlets.Outlet{ID: r.ID, Name: r.Name, CreatedAt: r.CreatedAt,
+			ReviewCount: int(r.ReviewCount), UntaggedCount: int(r.UntaggedCount)}
 	}
 	return out, nil
 }
