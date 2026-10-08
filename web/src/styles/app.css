@@ -82,7 +82,9 @@ h2 {
 /* ---------------------------------------------------------------- controls */
 button,
 a.btn,
-input {
+input,
+select,
+textarea {
   min-height: 44px;
 }
 button {
@@ -157,7 +159,9 @@ label {
   font-weight: var(--weight-label);
   font-size: var(--text-label);
 }
-input {
+input,
+select,
+textarea {
   inline-size: 100%;
   font: inherit;
   padding: 0 var(--space-3);
@@ -169,14 +173,39 @@ input {
     border-color var(--duration-fast) var(--ease-standard),
     box-shadow var(--duration-fast) var(--ease-standard);
 }
-input:hover {
+input:hover,
+select:hover,
+textarea:hover {
   border-color: var(--color-accent);
 }
-input:focus-visible {
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: 0;
   box-shadow: var(--ring-focus);
   border-color: var(--color-accent);
+}
+input[type="checkbox"] {
+  inline-size: 20px;
+  min-height: 20px;
+  block-size: 20px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--color-accent);
+}
+select {
+  appearance: none;
+  padding-inline-end: var(--space-6);
+  background-image: var(--icon-chevron);
+  background-repeat: no-repeat;
+  background-position: right var(--space-3) center;
+  background-size: 14px;
+}
+textarea {
+  padding: var(--space-3);
+  line-height: var(--leading-body);
+  resize: vertical;
 }
 [aria-invalid="true"] {
   border-color: var(--color-danger);
@@ -683,10 +712,13 @@ table.data td.num {
   margin-inline-end: var(--space-1);
 }
 .filters {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
   align-items: end;
+}
+.filters .f-search {
+  grid-column: 1 / -1;
 }
 .filters label {
   display: grid;
@@ -697,6 +729,7 @@ table.data td.num {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-height: 44px;
 }
 .review-text {
   white-space: pre-line;
@@ -771,6 +804,9 @@ table.data td.num {
   margin-inline-end: var(--space-1);
   vertical-align: middle;
 }
+.sidenav a.only-phone {
+  display: none;
+}
 /* Phones: the side nav becomes a bottom tab bar (phase 1 web LLD deferred it here). */
 @media (max-width: 600px) {
   .sidenav {
@@ -784,6 +820,74 @@ table.data td.num {
   .main {
     padding-bottom: var(--space-7);
   }
+  /* S-09: at most five tabs, icon above label, each an equal share. */
+  .sidenav a {
+    flex: 1 1 0;
+    min-inline-size: 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    min-height: 56px;
+    padding: 0;
+    border-radius: 0;
+    font-size: 0.75rem;
+  }
+  .sidenav a.only-desk {
+    display: none;
+  }
+  .sidenav a.only-phone {
+    display: flex;
+  }
+}
+/* ---------------------------------------------------------------- More (S-09, phone) */
+.more-list {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0 var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+  box-shadow: var(--elevation-1);
+}
+.more-list li {
+  border-block-end: 1px solid var(--color-border);
+}
+.more-list li:last-child {
+  border-block-end: 0;
+}
+.more-list a,
+.more-list button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  inline-size: 100%;
+  min-height: 56px;
+  color: var(--color-text);
+  font: inherit;
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.more-list a:hover,
+.more-list button:hover {
+  color: var(--color-accent);
+}
+.more-list svg {
+  box-sizing: content-box;
+  inline-size: 20px;
+  block-size: 20px;
+  padding: var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-subtle);
+  color: var(--color-accent);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 /* ---------------------------------------------------------------- replies (S-05) */
@@ -803,6 +907,52 @@ table.data td.num {
   padding: var(--space-2);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-control);
+}
+.badge.ok {
+  background: var(--color-success-subtle);
+  color: var(--color-success);
+}
+.badge.neg {
+  background: var(--color-neg-subtle);
+  color: var(--color-neg);
+}
+.badge.neutral {
+  background: var(--color-neutral-subtle);
+  color: var(--color-neutral);
+}
+.chip {
+  display: inline-block;
+  padding: 2px var(--space-half);
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-subtle);
+  font-size: var(--text-label);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+  margin: 0 var(--space-1) var(--space-1) 0;
+  white-space: nowrap;
+}
+.rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-subtle);
+  color: var(--color-text);
+  font-weight: var(--weight-title);
+  font-size: var(--text-label);
+  white-space: nowrap;
+}
+.rating::before {
+  content: "\2605";
+  color: var(--color-accent);
+  font-size: 0.9em;
+}
+.review-panel,
+.reply-panel {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
 }
 .badge.success {
   background: var(--color-success-subtle);

@@ -17,7 +17,18 @@ describe("AppShell", () => {
     renderApp("/outlets");
 
     await screen.findByRole("navigation", { name: "Sections" });
-    expect(navLinks()).toEqual(["Overview", "Reviews", "Themes", "Outlets", "Import", "Digest"]);
+    expect(navLinks()).toEqual([
+      "Overview",
+      "Reviews",
+      "Themes",
+      "Outlets",
+      "Import",
+      "Digest",
+      "More",
+    ]);
+    // S-09: on a phone Outlets and Digest move into More (the CSS hides by class).
+    expect(screen.getByRole("link", { name: "Digest" })).toHaveClass("only-desk");
+    expect(screen.getByRole("link", { name: "More" })).toHaveClass("only-phone");
     expect(screen.getByRole("link", { name: "Outlets" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Overview" })).not.toHaveAttribute("aria-current");
   });
@@ -72,5 +83,36 @@ describe("AppShell", () => {
       await screen.findByRole("heading", { name: "Sign in to review intelligence" }),
     ).toBeInTheDocument();
     expect(screen.getByTestId("location").textContent).toBe("/sign-in");
+  });
+
+  it("S-09 More lists Outlets, the digest and Sign out for the admin", async () => {
+    stubFetch({
+      "GET /api/v1/me": { status: 200, body: adminMe },
+      "POST /api/v1/auth/logout": { status: 204 },
+    });
+    renderApp("/more");
+
+    const main = await screen.findByRole("main");
+    expect(await within(main).findByRole("heading", { name: "More" })).toBeInTheDocument();
+    expect(within(main).getByRole("link", { name: "Outlets" })).toHaveAttribute("href", "/outlets");
+    expect(within(main).getByRole("link", { name: "Weekly digest" })).toHaveAttribute(
+      "href",
+      "/digest",
+    );
+    fireEvent.click(within(main).getByRole("button", { name: "Sign out" }));
+    expect(
+      await screen.findByRole("heading", { name: "Sign in to review intelligence" }),
+    ).toBeInTheDocument();
+  });
+
+  it("a manager has no More tab and /more sends them to the overview", async () => {
+    stubFetch({ "GET /api/v1/me": { status: 200, body: managerMe } });
+    renderApp("/more");
+
+    expect(
+      await screen.findByRole("heading", { name: "Overview: Indiranagar" }),
+    ).toBeInTheDocument();
+    expect(navLinks()).not.toContain("More");
+    expect(screen.getByTestId("location").textContent).toBe("/");
   });
 });

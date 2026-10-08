@@ -3,6 +3,7 @@ import { AppShell } from "../components/AppShell";
 import { SignInPage } from "../features/auth/SignInPage";
 import { DigestPage } from "../features/digest/DigestPage";
 import { ImportPage } from "../features/imports/ImportPage";
+import { MorePage } from "../features/more/MorePage";
 import { OutletsPage } from "../features/outlets/OutletsPage";
 import { OverviewPage } from "../features/overview/OverviewPage";
 import { ReviewRoute } from "../features/reply/ReviewPage";
@@ -25,6 +26,7 @@ export function AppRoutes() {
             <Route path="/outlets" element={<OutletsPage />} />
             <Route path="/import" element={<ImportPage />} />
             <Route path="/digest" element={<DigestPage />} />
+            <Route path="/more" element={<MorePage />} />
           </Route>
         </Route>
       </Route>

@@ -1,18 +1,21 @@
-import { useState } from "react";
-import { Link, NavLink, Outlet, useNavigate } from "react-router";
+import { Link, NavLink, Outlet } from "react-router";
 import { useSession } from "../app/session-context";
-import { logout, type Me } from "../features/auth/api";
+import { type Me } from "../features/auth/api";
+import { useSignOut } from "../features/auth/use-sign-out";
 import { StatusStrip } from "../features/status/StatusStrip";
 
-type NavItem = { to: string; label: string; icon: string };
+// only: "desk" items move into More on a phone; "phone" items exist only there.
+type NavItem = { to: string; label: string; icon: string; only?: "desk" | "phone" };
 
 // Only built routes appear (web LLD section 3). Icon paths come from the
-// mockups. Below 600 px the nav is a bottom tab bar.
+// mockups. Below 600 px the nav is a bottom tab bar of at most five tabs
+// (S-09): the admin's Outlets and Digest move into More.
 const overview: NavItem = { to: "/", label: "Overview", icon: "M4 20V10M10 20V4M16 20v-7M22 20H2" };
 const outlets: NavItem = {
   to: "/outlets",
   label: "Outlets",
   icon: "M3 9l2-5h14l2 5M4 9v11h16V9M9 20v-6h6v6",
+  only: "desk",
 };
 
 const importNav: NavItem = {
@@ -32,11 +35,22 @@ const themesNav: NavItem = {
   icon: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
 };
 
-const digestNav: NavItem = { to: "/digest", label: "Digest", icon: "M3 5h18v14H3zM3 6l9 7 9-7" };
+const digestNav: NavItem = {
+  to: "/digest",
+  label: "Digest",
+  icon: "M3 5h18v14H3zM3 6l9 7 9-7",
+  only: "desk",
+};
+const moreNav: NavItem = {
+  to: "/more",
+  label: "More",
+  icon: "M3.5 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0M10.5 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0M17.5 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0",
+  only: "phone",
+};
 
 function navFor(role: Me["role"]): NavItem[] {
   const shared = [overview, reviewsNav, themesNav];
-  return role === "brand_admin" ? [...shared, outlets, importNav, digestNav] : shared;
+  return role === "brand_admin" ? [...shared, outlets, importNav, digestNav, moreNav] : shared;
 }
 
 function whoLabel(me: Me): string {
@@ -49,22 +63,13 @@ function whoLabel(me: Me): string {
 // AppShell is the frame of every signed-in screen: the navy rail with the
 // side nav, the top bar with the brand, the person and Sign out.
 export function AppShell() {
-  const { session, signedOut } = useSession();
-  const navigate = useNavigate();
-  const [signingOut, setSigningOut] = useState(false);
+  const { session } = useSession();
+  const [signOut, signingOut] = useSignOut();
 
   if (session.status !== "signed-in") {
     return null; // RequireSession renders the shell only for a signed-in user
   }
   const { me } = session;
-
-  async function signOut() {
-    setSigningOut(true);
-    // Signed out either way: if the call fails the cookie expires on its own.
-    await logout().catch(() => undefined);
-    signedOut();
-    navigate("/sign-in", { replace: true });
-  }
 
   return (
     <div className="app">
@@ -85,7 +90,12 @@ export function AppShell() {
         </Link>
         <nav className="sidenav" aria-label="Sections">
           {navFor(me.role).map((item) => (
-            <NavLink key={item.to} to={item.to} end>
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end
+              className={item.only ? `only-${item.only}` : undefined}
+            >
               <svg
                 viewBox="0 0 24 24"
                 aria-hidden="true"
