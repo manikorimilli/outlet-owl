@@ -808,3 +808,11 @@ table.data td.num {
   background: var(--color-success-subtle);
   color: var(--color-success);
 }
+
+/* ---------------------------------------------------------------- digest (S-08) */
+.digest-body {
+  white-space: pre-wrap;
+  font-family: var(--font-body);
+  line-height: var(--leading-devanagari);
+  margin: 0;
+}

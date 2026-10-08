@@ -6,8 +6,8 @@ import { StatusStrip } from "../features/status/StatusStrip";
 
 type NavItem = { to: string; label: string; icon: string };
 
-// Only built routes appear; Digest arrives with phase 6 (web LLD section 3).
-// Icon paths come from the mockups. Below 600 px the nav is a bottom tab bar.
+// Only built routes appear (web LLD section 3). Icon paths come from the
+// mockups. Below 600 px the nav is a bottom tab bar.
 const overview: NavItem = { to: "/", label: "Overview", icon: "M4 20V10M10 20V4M16 20v-7M22 20H2" };
 const outlets: NavItem = {
   to: "/outlets",
@@ -32,9 +32,11 @@ const themesNav: NavItem = {
   icon: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
 };
 
+const digestNav: NavItem = { to: "/digest", label: "Digest", icon: "M3 5h18v14H3zM3 6l9 7 9-7" };
+
 function navFor(role: Me["role"]): NavItem[] {
   const shared = [overview, reviewsNav, themesNav];
-  return role === "brand_admin" ? [...shared, outlets, importNav] : shared;
+  return role === "brand_admin" ? [...shared, outlets, importNav, digestNav] : shared;
 }
 
 function whoLabel(me: Me): string {

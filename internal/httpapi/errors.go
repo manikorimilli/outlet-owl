@@ -7,6 +7,7 @@ import (
 
 	"github.com/manikorimilli/outlet-owl/internal/auth"
 	"github.com/manikorimilli/outlet-owl/internal/connector"
+	"github.com/manikorimilli/outlet-owl/internal/digest"
 	"github.com/manikorimilli/outlet-owl/internal/imports"
 	"github.com/manikorimilli/outlet-owl/internal/middleware"
 	"github.com/manikorimilli/outlet-owl/internal/outlets"
@@ -70,6 +71,8 @@ func writeDomainError(w http.ResponseWriter, r *http.Request, logger *slog.Logge
 			details[i] = Detail{Field: p.Field, Reason: p.Reason}
 		}
 		WriteErrorDetails(w, r, http.StatusBadRequest, "csv_invalid", fileErr.Message, details)
+	case errors.Is(err, digest.ErrRoleNotAllowed):
+		WriteError(w, r, http.StatusForbidden, "role_not_allowed", "Only the brand admin can generate the digest.")
 	case errors.Is(err, replies.ErrRoleNotAllowed):
 		WriteError(w, r, http.StatusForbidden, "role_not_allowed", "Only this outlet's manager can draft, edit or mark this reply.")
 	case errors.Is(err, replies.ErrNotFound):

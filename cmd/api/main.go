@@ -21,6 +21,7 @@ import (
 	"github.com/manikorimilli/outlet-owl/internal/auth"
 	"github.com/manikorimilli/outlet-owl/internal/config"
 	"github.com/manikorimilli/outlet-owl/internal/dashboard"
+	"github.com/manikorimilli/outlet-owl/internal/digest"
 	"github.com/manikorimilli/outlet-owl/internal/gateway"
 	"github.com/manikorimilli/outlet-owl/internal/httpapi"
 	"github.com/manikorimilli/outlet-owl/internal/imports"
@@ -86,6 +87,7 @@ func run() error {
 		return fmt.Errorf("session tokens: %w", err)
 	}
 
+	reports := dashboard.NewService(st, time.Now, cfg.BrandTimezone)
 	handler := httpapi.New(httpapi.Deps{
 		Logger:    logger,
 		DB:        st,
@@ -94,7 +96,8 @@ func run() error {
 		Imports:   imports.NewService(st, tagger),
 		Reviews:   reviews.NewService(st),
 		Replies:   replies.NewService(st, gw, replyPrompt, logger),
-		Dashboard: dashboard.NewService(st, time.Now, cfg.BrandTimezone),
+		Dashboard: reports,
+		Digests:   digest.NewService(st, reports, digest.SMTP{Addr: cfg.SMTPAddr, From: cfg.SMTPFrom}),
 		Status:    statusReader{Store: st, worker: tagger, gw: gw},
 		Brand:     httpapi.Brand{Name: cfg.BrandName, Timezone: cfg.BrandTimezone.String()},
 	})

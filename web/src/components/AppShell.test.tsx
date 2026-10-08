@@ -17,7 +17,7 @@ describe("AppShell", () => {
     renderApp("/outlets");
 
     await screen.findByRole("navigation", { name: "Sections" });
-    expect(navLinks()).toEqual(["Overview", "Reviews", "Themes", "Outlets", "Import"]);
+    expect(navLinks()).toEqual(["Overview", "Reviews", "Themes", "Outlets", "Import", "Digest"]);
     expect(screen.getByRole("link", { name: "Outlets" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Overview" })).not.toHaveAttribute("aria-current");
   });

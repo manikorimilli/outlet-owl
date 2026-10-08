@@ -26,6 +26,7 @@ type Deps struct {
 	Imports ImportService
 	Reviews ReviewService
 	Replies ReplyService
+	Digests DigestService
 	// Dashboard builds the weekly reports; Status reads the tagging status.
 	Dashboard DashboardService
 	Status    StatusReader
@@ -55,6 +56,7 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("GET /api/v1/dashboard/heatmap", getHeatmap(d))
 	mux.HandleFunc("GET /api/v1/dashboard/movers", getMovers(d))
 	mux.HandleFunc("GET /api/v1/tagging/status", getTaggingStatus(d))
+	mux.HandleFunc("POST /api/v1/digests", createDigest(d))
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, r, http.StatusNotFound, "not_found", "No such route.")
 	})

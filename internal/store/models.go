@@ -100,6 +100,49 @@ func (ns NullBudgetModelCallPurpose) Value() (driver.Value, error) {
 	return string(ns.BudgetModelCallPurpose), nil
 }
 
+type DigestStatus string
+
+const (
+	DigestStatusSending DigestStatus = "sending"
+	DigestStatusSent    DigestStatus = "sent"
+	DigestStatusFailed  DigestStatus = "failed"
+)
+
+func (e *DigestStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = DigestStatus(s)
+	case string:
+		*e = DigestStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for DigestStatus: %T", src)
+	}
+	return nil
+}
+
+type NullDigestStatus struct {
+	DigestStatus DigestStatus `json:"digest_status"`
+	Valid        bool         `json:"valid"` // Valid is true if DigestStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullDigestStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.DigestStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.DigestStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullDigestStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.DigestStatus), nil
+}
+
 type ReplyStatus string
 
 const (
@@ -251,6 +294,34 @@ type BudgetModelCall struct {
 	// When the call was reserved, which is the time the log shows.
 	CreatedAt time.Time `json:"created_at"`
 	// When the call settled or failed.
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// One generated weekly digest. Serves US-01-009.
+type Digest struct {
+	// Surrogate key.
+	ID int64 `json:"id"`
+	// Client-made id; a repeat returns this digest and never sends again (tenet 8).
+	RequestID pgtype.UUID `json:"request_id"`
+	// sending before SMTP is called, then sent or failed.
+	Status DigestStatus `json:"status"`
+	// Monday of the latest complete week the digest covers, in the brand timezone.
+	WeekStart pgtype.Date `json:"week_start"`
+	// Address the one email went to: the brand admin. [personal data]
+	RecipientEmail string `json:"recipient_email"`
+	// Reviews dated in the two compared weeks that were still untagged.
+	UntaggedCount int32 `json:"untagged_count"`
+	// Email subject as sent.
+	Subject string `json:"subject"`
+	// Email body as composed, quoting urgent reviews. [personal data]
+	Body string `json:"body"`
+	// The SMTP error shown to the admin when sending failed.
+	FailureReason *string `json:"failure_reason"`
+	// When MailHog accepted the email.
+	SentAt *time.Time `json:"sent_at"`
+	// When the digest was generated and claimed.
+	CreatedAt time.Time `json:"created_at"`
+	// Last status change.
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
