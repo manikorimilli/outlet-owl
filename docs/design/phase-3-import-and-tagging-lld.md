@@ -139,7 +139,7 @@ Rules (GenAI 4.1, HLD section 3):
 | `GetImportByRequestID` | one row by `request_id` | `uq_imports_request_id` |
 | `ListImportRejections` | rejections of one import by row number | `import_rejections_pkey` |
 | `CreateImport` | insert, `ON CONFLICT (request_id) DO NOTHING RETURNING` | `uq_imports_request_id` |
-| `InsertReviews` | `INSERT ... SELECT FROM unnest(...) WITH ORDINALITY ORDER BY ord ON CONFLICT (natural key) DO NOTHING RETURNING id` | `uq_reviews_natural_key` |
+| `InsertReviews` | `INSERT ... SELECT` from one `unnest(...) WITH ORDINALITY` per array joined on the position, `ORDER BY` it, `ON CONFLICT (natural key) DO NOTHING RETURNING id` (a subscript on a text array is quadratic) | `uq_reviews_natural_key` |
 | `InsertImportRejections`, `SetImportCounts` | arrays; update by id | primary keys |
 | `ListOutlets` (changed) | adds `review_count` and `untagged_count` per outlet as subqueries | `idx_reviews_outlet_id_review_date` (leading column), `review_tags_pkey` |
 | `UntaggedReviewIDs` | `reviews` with no `review_tags` row, `id > $after`, by id | `reviews_pkey`, `review_tags_pkey` (anti-join) |

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/manikorimilli/outlet-owl/internal/gateway"
@@ -250,19 +251,21 @@ func TestPass_RunsNewerReviewsAfterSnapshot(t *testing.T) {
 }
 
 func TestWorker_PausedTagsNothing(t *testing.T) {
-	s := newMemStore(5)
-	m := &scriptModel{answer: func(_ int, ids []int64) (string, error) { return allValid(ids), nil }}
-	w := New(Config{Store: s, Model: m, Prompt: prompts.Version{Name: "tagging", Number: 1}, Enabled: false})
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan struct{})
-	go func() { w.Run(ctx); close(done) }()
-	w.Signal()
-	time.Sleep(20 * time.Millisecond)
-	cancel()
-	<-done
-	if len(m.calls) != 0 || s.locks != 0 {
-		t.Fatalf("paused worker made %d calls", len(m.calls))
-	}
+	synctest.Test(t, func(t *testing.T) {
+		s := newMemStore(5)
+		m := &scriptModel{answer: func(_ int, ids []int64) (string, error) { return allValid(ids), nil }}
+		w := New(Config{Store: s, Model: m, Prompt: prompts.Version{Name: "tagging", Number: 1}, Enabled: false})
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		go func() { w.Run(ctx); close(done) }()
+		w.Signal()
+		synctest.Wait() // Run is blocked for good: it would have tagged by now
+		if len(m.calls) != 0 || s.locks != 0 {
+			t.Fatalf("paused worker made %d calls", len(m.calls))
+		}
+		cancel()
+		<-done
+	})
 }
 
 func TestWorker_SignalsCoalesceAndRun(t *testing.T) {
@@ -291,25 +294,24 @@ func TestWorker_SignalsCoalesceAndRun(t *testing.T) {
 
 // A panic inside a pass is recovered and the worker keeps serving signals.
 func TestWorker_RecoversAPanic(t *testing.T) {
-	s := newMemStore(1)
-	answered := make(chan struct{}, 1)
-	m := &scriptModel{answer: func(call int, ids []int64) (string, error) {
-		if call == 1 {
-			panic("boom")
+	synctest.Test(t, func(t *testing.T) {
+		s := newMemStore(1)
+		m := &scriptModel{answer: func(call int, ids []int64) (string, error) {
+			if call == 1 {
+				panic("boom")
+			}
+			return allValid(ids), nil
+		}}
+		w := newWorker(s, m)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		go w.Run(ctx)
+		w.Signal()
+		synctest.Wait() // the first pass panicked and Run waits again
+		w.Signal()
+		synctest.Wait()
+		if len(m.calls) != 2 || len(s.tags) != 1 {
+			t.Fatalf("calls %d, tagged %d; want the second signal to tag after the panic", len(m.calls), len(s.tags))
 		}
-		answered <- struct{}{}
-		return allValid(ids), nil
-	}}
-	w := newWorker(s, m)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go w.Run(ctx)
-	w.Signal()
-	time.Sleep(50 * time.Millisecond)
-	w.Signal()
-	select {
-	case <-answered:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the worker stopped after a panic")
-	}
+	})
 }

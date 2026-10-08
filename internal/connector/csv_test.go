@@ -73,11 +73,25 @@ func TestCSV_QuotedValueIsCut(t *testing.T) {
 	}
 }
 
-// A quoted value over two lines is one spreadsheet row.
-func TestCSV_RowNumbersCountRecordsNotLines(t *testing.T) {
-	b, err := fetch(t, header+"A,G,2026-09-14,4,\"two\nlines\",R\nA,G,,4,t,R\n")
-	if err != nil || len(b.Rows) != 1 || b.Rows[0].Number != 2 || b.Rejections[0].Number != 3 {
-		t.Fatalf("got %+v, %v; want row 2 valid and row 3 rejected", b, err)
+// Rows are numbered as a spreadsheet shows them: a quoted value over two
+// lines is one row, and a blank line, which encoding/csv skips, is a row.
+func TestCSV_RowNumbersMatchTheSpreadsheet(t *testing.T) {
+	cases := []struct {
+		name, csv string
+		valid     int
+		rejected  int
+	}{
+		{"MultiLineValue", header + "A,G,2026-09-14,4,\"two\nlines\",R\nA,G,,4,t,R\n", 2, 3},
+		{"BlankLine", header + "A,G,2026-09-14,5,ok,R\n\nA,G,,4,t,R\n", 2, 4},
+		{"BlankLinesCRLF", header[:len(header)-1] + "\r\n\r\nA,G,2026-09-14,5,ok,R\r\n\r\n\r\nA,G,,4,t,R", 3, 6},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			b, err := fetch(t, tc.csv)
+			if err != nil || len(b.Rows) != 1 || b.Rows[0].Number != tc.valid || len(b.Rejections) != 1 || b.Rejections[0].Number != tc.rejected {
+				t.Fatalf("got %+v, %v; want row %d valid and row %d rejected", b, err, tc.valid, tc.rejected)
+			}
+		})
 	}
 }
 

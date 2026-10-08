@@ -72,8 +72,9 @@ func (q *Queries) GetImportByRequestID(ctx context.Context, requestID string) (G
 
 const insertImportRejections = `-- name: InsertImportRejections :exec
 INSERT INTO import_rejections (import_id, row_number, reason)
-SELECT $1::bigint, ($2::integer[])[i], ($3::text[])[i]
-FROM generate_subscripts($2::integer[], 1) AS i
+SELECT $1::bigint, n.v, r.v
+FROM unnest($2::integer[]) WITH ORDINALITY AS n (v, i)
+JOIN unnest($3::text[]) WITH ORDINALITY AS r (v, i) USING (i)
 `
 
 type InsertImportRejectionsParams struct {
@@ -89,18 +90,21 @@ func (q *Queries) InsertImportRejections(ctx context.Context, arg InsertImportRe
 
 const insertReviews = `-- name: InsertReviews :many
 INSERT INTO reviews (outlet_id, import_id, source, review_date, rating, review_text, reviewer_name)
-SELECT ($1::bigint[])[i], $2::bigint, ($3::text[])[i],
-       ($4::date[])[i], ($5::smallint[])[i],
-       ($6::text[])[i], ($7::text[])[i]
-FROM generate_subscripts($1::bigint[], 1) AS i
+SELECT o.v, $1::bigint, s.v, d.v, r.v, t.v, n.v
+FROM unnest($2::bigint[]) WITH ORDINALITY AS o (v, i)
+JOIN unnest($3::text[]) WITH ORDINALITY AS s (v, i) USING (i)
+JOIN unnest($4::date[]) WITH ORDINALITY AS d (v, i) USING (i)
+JOIN unnest($5::smallint[]) WITH ORDINALITY AS r (v, i) USING (i)
+JOIN unnest($6::text[]) WITH ORDINALITY AS t (v, i) USING (i)
+JOIN unnest($7::text[]) WITH ORDINALITY AS n (v, i) USING (i)
 ORDER BY i
 ON CONFLICT (outlet_id, source, review_date, reviewer_name, md5(review_text)) DO NOTHING
 RETURNING id
 `
 
 type InsertReviewsParams struct {
-	OutletIds     []int64       `json:"outlet_ids"`
 	ImportID      int64         `json:"import_id"`
+	OutletIds     []int64       `json:"outlet_ids"`
 	Sources       []string      `json:"sources"`
 	ReviewDates   []pgtype.Date `json:"review_dates"`
 	Ratings       []int16       `json:"ratings"`
@@ -109,12 +113,14 @@ type InsertReviewsParams struct {
 }
 
 // The valid rows of one import, in file order so review ids follow the file.
+// One unnest per array, joined on the position: a subscript on a text array
+// walks it from the start, which is quadratic over a 5 MB file.
 // A row already stored (same outlet, source, date, reviewer and text) returns
 // nothing and is counted as a duplicate; uq_reviews_natural_key.
 func (q *Queries) InsertReviews(ctx context.Context, arg InsertReviewsParams) ([]int64, error) {
 	rows, err := q.db.Query(ctx, insertReviews,
-		arg.OutletIds,
 		arg.ImportID,
+		arg.OutletIds,
 		arg.Sources,
 		arg.ReviewDates,
 		arg.Ratings,

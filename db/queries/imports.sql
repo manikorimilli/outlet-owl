@@ -23,21 +23,27 @@ RETURNING id, created_at;
 
 -- name: InsertReviews :many
 -- The valid rows of one import, in file order so review ids follow the file.
+-- One unnest per array, joined on the position: a subscript on a text array
+-- walks it from the start, which is quadratic over a 5 MB file.
 -- A row already stored (same outlet, source, date, reviewer and text) returns
 -- nothing and is counted as a duplicate; uq_reviews_natural_key.
 INSERT INTO reviews (outlet_id, import_id, source, review_date, rating, review_text, reviewer_name)
-SELECT (sqlc.arg(outlet_ids)::bigint[])[i], sqlc.arg(import_id)::bigint, (sqlc.arg(sources)::text[])[i],
-       (sqlc.arg(review_dates)::date[])[i], (sqlc.arg(ratings)::smallint[])[i],
-       (sqlc.arg(review_texts)::text[])[i], (sqlc.arg(reviewer_names)::text[])[i]
-FROM generate_subscripts(sqlc.arg(outlet_ids)::bigint[], 1) AS i
+SELECT o.v, sqlc.arg(import_id)::bigint, s.v, d.v, r.v, t.v, n.v
+FROM unnest(sqlc.arg(outlet_ids)::bigint[]) WITH ORDINALITY AS o (v, i)
+JOIN unnest(sqlc.arg(sources)::text[]) WITH ORDINALITY AS s (v, i) USING (i)
+JOIN unnest(sqlc.arg(review_dates)::date[]) WITH ORDINALITY AS d (v, i) USING (i)
+JOIN unnest(sqlc.arg(ratings)::smallint[]) WITH ORDINALITY AS r (v, i) USING (i)
+JOIN unnest(sqlc.arg(review_texts)::text[]) WITH ORDINALITY AS t (v, i) USING (i)
+JOIN unnest(sqlc.arg(reviewer_names)::text[]) WITH ORDINALITY AS n (v, i) USING (i)
 ORDER BY i
 ON CONFLICT (outlet_id, source, review_date, reviewer_name, md5(review_text)) DO NOTHING
 RETURNING id;
 
 -- name: InsertImportRejections :exec
 INSERT INTO import_rejections (import_id, row_number, reason)
-SELECT sqlc.arg(import_id)::bigint, (sqlc.arg(row_numbers)::integer[])[i], (sqlc.arg(reasons)::text[])[i]
-FROM generate_subscripts(sqlc.arg(row_numbers)::integer[], 1) AS i;
+SELECT sqlc.arg(import_id)::bigint, n.v, r.v
+FROM unnest(sqlc.arg(row_numbers)::integer[]) WITH ORDINALITY AS n (v, i)
+JOIN unnest(sqlc.arg(reasons)::text[]) WITH ORDINALITY AS r (v, i) USING (i);
 
 -- name: SetImportCounts :exec
 UPDATE imports

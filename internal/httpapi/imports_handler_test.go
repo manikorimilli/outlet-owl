@@ -148,3 +148,18 @@ func TestCreateImport_MissingFilePartIs400(t *testing.T) {
 		t.Fatalf("status %d, want 400", rec.Code)
 	}
 }
+
+// A body cut off before its closing boundary is the client's fault.
+func TestCreateImport_TruncatedBodyIs400(t *testing.T) {
+	var body bytes.Buffer
+	mw := multipart.NewWriter(&body)
+	fw, _ := mw.CreateFormFile("file", "f.csv")
+	_, _ = io.WriteString(fw, goodCSV)
+	// no mw.Close(): the final boundary never arrives
+	rec := postImport(mw.FormDataContentType(), &body)
+	var env fullEnvelope
+	_ = json.Unmarshal(rec.Body.Bytes(), &env)
+	if rec.Code != http.StatusBadRequest || env.Error.Code != "malformed_request" {
+		t.Fatalf("got %d %s, want 400 malformed_request", rec.Code, env.Error.Code)
+	}
+}

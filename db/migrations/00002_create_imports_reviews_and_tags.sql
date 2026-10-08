@@ -12,7 +12,7 @@
 -- Down: drops review_tags, reviews, import_rejections, imports and sentiment; Down loses: EVERY IMPORTED REVIEW,
 --       EVERY TAG RESULT AND EVERY IMPORT RESULT. Recovery is importing the files again, and tagging them again
 --       spends model budget unless the recordings match.
---       tested in: internal/store/migrations_integration_test.go (TestMigration00002_UpDownUp).
+--       tested in: internal/store/imports_integration_test.go (TestMigration00002_UpDownUp).
 -- Copied from docs/design/schema.sql; a difference between the two is a bug in this file.
 
 -- +goose Up

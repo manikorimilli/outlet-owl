@@ -47,7 +47,24 @@ func (c *CSV) Fetch(ctx context.Context) (Batch, error) {
 	rd := csv.NewReader(bytes.NewReader(data))
 	rd.FieldsPerRecord = -1 // a short row is rejected alone, not the file
 
-	header, err := rd.Read()
+	// Rows are numbered as a spreadsheet numbers them: a blank line, which
+	// encoding/csv skips, is still a row, and a quoted value over two lines
+	// is one. lines.line is where a record starts when no blank line
+	// precedes it; the gap to its real start line is the blank rows.
+	lines := lineCounter{data: data, line: 1}
+	number := 0
+	read := func() ([]string, error) {
+		record, err := rd.Read()
+		if err != nil {
+			return nil, err
+		}
+		start, _ := rd.FieldPos(0)
+		number += 1 + start - lines.line
+		lines.advance(rd.InputOffset())
+		return record, nil
+	}
+
+	header, err := read()
 	if errors.Is(err, io.EOF) {
 		return Batch{}, missingColumns(Columns)
 	}
@@ -60,11 +77,11 @@ func (c *CSV) Fetch(ctx context.Context) (Batch, error) {
 	}
 
 	var b Batch
-	for number := 2; ; number++ {
+	for {
 		if err := ctx.Err(); err != nil {
 			return Batch{}, err
 		}
-		record, err := rd.Read()
+		record, err := read()
 		if errors.Is(err, io.EOF) {
 			return b, nil
 		}
@@ -78,6 +95,18 @@ func (c *CSV) Fetch(ctx context.Context) (Batch, error) {
 		}
 		b.Rows = append(b.Rows, row)
 	}
+}
+
+// lineCounter tracks the line that follows the bytes read so far.
+type lineCounter struct {
+	data   []byte
+	offset int64
+	line   int
+}
+
+func (c *lineCounter) advance(to int64) {
+	c.line += bytes.Count(c.data[c.offset:to], []byte("\n"))
+	c.offset = to
 }
 
 // columnIndex maps each required column to its position. Names are

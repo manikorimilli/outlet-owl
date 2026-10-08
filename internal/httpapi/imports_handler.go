@@ -85,7 +85,7 @@ func createImport(d Deps) http.HandlerFunc {
 		}
 		defer func() { _ = part.Close() }() // the body is discarded with the request
 
-		res, err := d.Imports.Import(r.Context(), user, strings.ToLower(key), fileName(part.FileName()), connector.NewCSV(part))
+		res, err := d.Imports.Import(r.Context(), user, strings.ToLower(key), fileName(part.FileName()), connector.NewCSV(partReader{part}))
 		if err != nil {
 			writeDomainError(w, r, d.Logger, err)
 			return
@@ -121,6 +121,20 @@ func filePart(mr *multipart.Reader) (*multipart.Part, error) {
 		}
 		_ = p.Close()
 	}
+}
+
+// partReader reports a body that ends early or breaks the multipart format
+// as the client's fault (400), not the server's; the size limits pass
+// through for the 413.
+type partReader struct{ r io.Reader }
+
+func (p partReader) Read(b []byte) (int, error) {
+	n, err := p.r.Read(b)
+	var tooLarge *http.MaxBytesError
+	if err != nil && !errors.Is(err, io.EOF) && !errors.As(err, &tooLarge) {
+		return n, &malformedError{reason: "the file part could not be read to its end"}
+	}
+	return n, err
 }
 
 // fileName keeps the base name the browser sent, at most 200 characters; a
