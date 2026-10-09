@@ -1,4 +1,5 @@
 import type { ImportResult } from "./api";
+import { TableScroll } from "../../components/TableScroll";
 
 // shownRows caps the rejected-rows table; a file with a wrong date format
 // can reject every row, and thousands of rows would stall the page.
@@ -37,7 +38,7 @@ export function ImportResultCard({ result }: { result: ImportResult }) {
       {result.rejections.length > 0 && (
         <>
           <h3>Rejected rows</h3>
-          <div className="table-scroll">
+          <TableScroll label="Rejected rows">
             <table className="data">
               <caption className="sr-only">Rejected rows</caption>
               <thead>
@@ -57,7 +58,7 @@ export function ImportResultCard({ result }: { result: ImportResult }) {
                 ))}
               </tbody>
             </table>
-          </div>
+          </TableScroll>
           {result.rejections.length > shownRows && (
             <p className="small muted">
               Showing the first {shownRows} of {result.rejections.length} rejected rows.

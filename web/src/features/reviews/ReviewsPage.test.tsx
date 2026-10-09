@@ -4,6 +4,7 @@ import { adminMe, errorReply, managerMe, stubFetch } from "../../test/fetch-stub
 import { outletsReply, page, review, statusReply, themesReply } from "../../test/phase4-fixtures";
 import { renderApp } from "../../test/render-app";
 import { apiQuery, readFilters } from "./api";
+import { expectAccessibleStructure } from "../../test/a11y";
 
 type Routes = Parameters<typeof stubFetch>[0];
 
@@ -34,6 +35,7 @@ describe("ReviewsPage", () => {
     expect(within(table).getByText("<b>खाने में कीड़ा मिला</b>")).toBeInTheDocument();
     expect(within(table).getByText("Urgent: Food safety")).toBeInTheDocument();
     expect(within(table).getAllByText("Not tagged yet")).toHaveLength(2);
+    expectAccessibleStructure();
   });
 
   // AC-US-01-008-1, -2: the URL drives the request; a bad value drops only itself.

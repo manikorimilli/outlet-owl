@@ -1,12 +1,13 @@
 import type { OutletSummary } from "./api";
 import { outletRowId } from "./row-id";
+import { TableScroll } from "../../components/TableScroll";
 
 // OutletTable lists who manages each outlet. Names are rendered as text
 // (tenet 6). An outlet without a manager says so in words: nobody can reply
 // to its reviews until the users file names one.
 export function OutletTable({ outlets }: { outlets: OutletSummary[] }) {
   return (
-    <div className="table-scroll">
+    <TableScroll label="Outlets">
       <table className="data">
         <caption className="sr-only">Outlets</caption>
         <thead>
@@ -40,6 +41,6 @@ export function OutletTable({ outlets }: { outlets: OutletSummary[] }) {
           ))}
         </tbody>
       </table>
-    </div>
+    </TableScroll>
   );
 }
