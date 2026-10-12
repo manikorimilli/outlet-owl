@@ -50,6 +50,13 @@ export const reasonLabels: Record<string, string> = {
   legal_threat: "Legal threat",
 };
 
+// sentimentBadges is the badge colour per sentiment: green, grey, burnt orange.
+export const sentimentBadges: Record<string, string> = {
+  positive: "ok",
+  neutral: "neutral",
+  negative: "neg",
+};
+
 export const sentimentLabels: Record<string, string> = {
   positive: "Positive",
   neutral: "Neutral",

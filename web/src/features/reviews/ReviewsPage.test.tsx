@@ -38,6 +38,27 @@ describe("ReviewsPage", () => {
     expectAccessibleStructure();
   });
 
+  it("shows rating, sentiment and reply as labels, and names every cell for phones", async () => {
+    stubFetch({
+      ...base,
+      [list({})]: page([
+        { ...review(1488, "Cold food"), reply_status: "replied" },
+        review(1490, "Slow"),
+      ]),
+    } as Routes);
+    renderApp("/reviews");
+
+    const table = await screen.findByRole("table", { name: "Reviews, newest first" });
+    const [replied, open] = within(table).getAllByRole("row").slice(1);
+    expect(within(replied!).getByText("Replied")).toHaveClass("badge", "success");
+    expect(within(open!).getByText("Not replied")).not.toHaveClass("badge");
+    expect(within(replied!).getByText("Negative")).toHaveClass("badge", "neg");
+    expect(within(replied!).getByLabelText("1 out of 5")).toHaveTextContent("1/5");
+    // The stacked phone layout shows each cell's column name from data-label.
+    const cells = within(replied!).getAllByRole("cell");
+    expect(cells.every((c) => c.hasAttribute("data-label"))).toBe(true);
+  });
+
   // AC-US-01-008-1, -2: the URL drives the request; a bad value drops only itself.
   it("reads filters from the URL and sends them to the API", async () => {
     stubFetch({

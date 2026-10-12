@@ -2,7 +2,13 @@ import { useEffect, useId, useState } from "react";
 import { Link, useParams } from "react-router";
 import { asApiError, type ApiError } from "../../lib/api";
 import { useSession } from "../../app/session-context";
-import { formatDate, formatInstant, reasonLabels, sentimentLabels } from "../../lib/format";
+import {
+  formatDate,
+  formatInstant,
+  reasonLabels,
+  sentimentBadges,
+  sentimentLabels,
+} from "../../lib/format";
 import { useLoad } from "../../lib/use-load";
 import { listThemes } from "../reviews/api";
 import {
@@ -62,12 +68,6 @@ function ReviewPage({ id }: { id: number }) {
   return <Loaded detail={state.data} />;
 }
 
-const sentimentBadge: Record<string, string> = {
-  positive: "ok",
-  neutral: "neutral",
-  negative: "neg",
-};
-
 // Loaded is the S-05 layout from the mockup: the review with its meta line,
 // theme chips and sentiment, then the reply.
 function Loaded({ detail }: { detail: ReviewDetail }) {
@@ -110,7 +110,7 @@ function Loaded({ detail }: { detail: ReviewDetail }) {
                 {label(code)}
               </span>
             ))}
-            <span className={`badge ${sentimentBadge[r.tags.sentiment] ?? ""}`}>
+            <span className={`badge ${sentimentBadges[r.tags.sentiment] ?? ""}`}>
               {sentimentLabels[r.tags.sentiment]}
             </span>
           </p>
