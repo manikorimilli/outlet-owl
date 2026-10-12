@@ -267,7 +267,32 @@ function ReplyEditor({
 
   if (drafting === "drafting") {
     return (
-      <p role="status">Drafting a reply in the brand&apos;s tone. This takes a few seconds.</p>
+      <div className="ai-drafting">
+        <p className="ai-drafting-head" role="status">
+          <span className="ai-spark" aria-hidden="true">
+            ✨
+          </span>
+          <span>
+            <strong>
+              AI is drafting your reply
+              <span className="ai-dots" aria-hidden="true">
+                <span>.</span>
+                <span>.</span>
+                <span>.</span>
+              </span>
+            </strong>
+            <span className="small muted">
+              {" "}
+              In the brand&apos;s tone. This takes a few seconds.
+            </span>
+          </span>
+        </p>
+        <div className="ai-lines" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+      </div>
     );
   }
   if (reply?.status === "replied") {

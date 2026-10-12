@@ -47,6 +47,10 @@ against main at 32ddfc3 on 2026-10-08.
 - `SEED_ARGS="-tag=false"`: no tagging; the reviews stay untagged.
 - `SEED_ARGS="-reviews=500"`: a smaller set (at least 145), about 25 tagging
   calls instead of 75. The Koramangala wait-time spike stays.
+- Try the import: as the admin, open Import and upload
+  `testdata/sample-import.csv`. Ten rows import; two are rejected on
+  purpose (an outlet that does not exist, a rating of 7) so the rejected
+  list shows too. Uploading it again skips the ten as already imported.
 - `make db-reset`: drops the whole database volume, budget history included
   (destructive), then run `make migrate` and `make seed` again.
 
