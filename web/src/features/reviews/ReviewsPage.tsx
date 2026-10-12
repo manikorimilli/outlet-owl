@@ -232,7 +232,7 @@ export function ReviewsPage() {
               />
               Urgent only
             </label>
-            <button className="btn btn-secondary f-more" type="submit">
+            <button className="btn btn-primary f-more" type="submit">
               Search
             </button>
           </form>

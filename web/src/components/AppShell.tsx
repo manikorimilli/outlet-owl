@@ -116,10 +116,10 @@ export function AppShell() {
         <span className="brand-sub">{me.brand.name}</span>
         <StatusStrip />
         <span className="spacer" />
-        <span className="muted who">{whoLabel(me)}</span>
+        <span className="muted who only-desk">{whoLabel(me)}</span>
         <button
           type="button"
-          className="btn btn-secondary btn-small"
+          className="btn btn-secondary btn-small only-desk"
           onClick={signOut}
           disabled={signingOut}
         >

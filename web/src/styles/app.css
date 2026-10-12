@@ -1175,3 +1175,109 @@ table.data td.num {
   inline-size: 10px;
   block-size: 10px;
 }
+
+/* ---------------------------------------------------------------- polish: phone top bar, stacked reviews, file picker */
+@media (max-width: 768px) {
+  /* Sign out and the person live on the More tab (S-09) on phones. */
+  .topbar .only-desk {
+    display: none;
+  }
+  .topbar {
+    min-block-size: 52px;
+  }
+}
+
+table.reviews th,
+table.reviews td {
+  padding-inline: var(--space-2);
+}
+table.reviews .chip {
+  margin-block-end: 2px;
+}
+table.reviews .badge {
+  white-space: nowrap;
+}
+table.reviews .review-cell {
+  min-width: 14rem;
+}
+
+/* A stacked table turns each row into a card on phones: the head row goes,
+   each cell takes its own line and shows its column name from data-label.
+   The markup stays a table, so screen readers still read it as one. */
+@media (max-width: 768px) {
+  table.stack thead {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  table.stack,
+  table.stack tbody,
+  table.stack tr,
+  table.stack td {
+    display: block;
+    inline-size: 100%;
+  }
+  table.stack tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1) var(--space-2);
+    padding: var(--space-3) 0;
+    border-block-end: 1px solid var(--color-border);
+  }
+  table.stack td {
+    inline-size: auto;
+    padding: 0;
+    border: 0;
+  }
+  table.stack td.review-cell {
+    order: -1;
+    flex-basis: 100%;
+    min-width: 0;
+  }
+  table.stack td[data-label="Themes"] {
+    flex-basis: 100%;
+  }
+  table.stack td[data-label="Themes"]::before {
+    content: "Themes: ";
+    color: var(--color-text-muted);
+    font-size: var(--text-label);
+  }
+  table.stack tbody tr:hover {
+    background: transparent;
+  }
+  .table-scroll:has(> table.stack) {
+    overflow-x: visible;
+  }
+}
+
+/* File picker: the browser's own control, dressed as a drop area with a
+   secondary button. Behaviour is unchanged. */
+input[type="file"] {
+  inline-size: 100%;
+  padding: var(--space-2);
+  border: 2px dashed var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--text-label);
+  cursor: pointer;
+}
+input[type="file"]:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-subtle);
+}
+input[type="file"]::file-selector-button {
+  margin-inline-end: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-weight: var(--weight-label);
+  cursor: pointer;
+}
