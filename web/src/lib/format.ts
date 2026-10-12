@@ -13,6 +13,12 @@ export function formatDate(d: string): string {
   return `${day} ${months[m - 1]} ${y}`;
 }
 
+// formatDay shows "3 Oct", for chart axes where the year is in the title.
+export function formatDay(d: string): string {
+  const [, m, day] = parts(d);
+  return `${day} ${months[m - 1]}`;
+}
+
 // formatInstant shows an instant as its date in the brand timezone, so a
 // reply approved at 01:30 IST on 5 Oct reads "5 Oct 2026", not UTC's 4 Oct.
 export function formatInstant(iso: string, timeZone: string): string {

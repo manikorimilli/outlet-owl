@@ -12,6 +12,7 @@ import {
 } from "../../test/phase4-fixtures";
 import { renderApp } from "../../test/render-app";
 import { apiQuery } from "../reviews/api";
+import { expectAccessibleStructure } from "../../test/a11y";
 
 const urgentKey = `GET /api/v1/reviews${apiQuery({ urgent: true, from: week.start, to: week.end })}`;
 
@@ -76,6 +77,33 @@ describe("OverviewPage", () => {
       }),
     ).toBeInTheDocument();
     expect(within(table).getByText("down 0.7")).toBeInTheDocument();
+  });
+
+  it("headline tiles: this week's numbers and their change, in words", async () => {
+    stubFetch(routes());
+    renderApp("/");
+
+    const tiles = await screen.findByLabelText("This week at a glance");
+    expect(tiles).toHaveTextContent("Reviews10no change vs last week");
+    expect(tiles).toHaveTextContent("Average rating3.4 / 5down 0.7 vs last week");
+    // 8 of 15 tagged is 53%, 3 of 10 was 30%.
+    expect(tiles).toHaveTextContent("Negative53%up 23 points vs last week");
+    expect(tiles).toHaveTextContent("Replied0%of this week's reviews");
+  });
+
+  it("charts: sentiment and rating by week, with the numbers as tables", async () => {
+    stubFetch(routes());
+    renderApp("/");
+
+    const sentiment = await screen.findByRole("table", {
+      name: "Reviews by sentiment, week by week",
+    });
+    expect(within(sentiment).getAllByRole("row")).toHaveLength(13);
+    expect(within(sentiment).getAllByRole("row")[12]).toHaveTextContent("28 Sep 2026825");
+    const rating = screen.getByRole("table", { name: "Average rating, week by week" });
+    expect(within(rating).getAllByRole("row")[12]).toHaveTextContent("28 Sep 20263.4");
+    expect(screen.getByRole("region", { name: "Sentiment by week chart" })).toBeInTheDocument();
+    expectAccessibleStructure();
   });
 
   it("partial, budget stop and paused notices", async () => {
