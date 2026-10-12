@@ -64,6 +64,30 @@ describe("ReviewPage", () => {
     });
   });
 
+  it("while the model drafts, says the AI is drafting, then shows the draft", async () => {
+    let answer: (r: StubReply) => void = () => undefined;
+    stubFetch({
+      ...base,
+      "GET /api/v1/me": { status: 200, body: managerMe },
+      "GET /api/v1/reviews/7": detail(true),
+      "POST /api/v1/reviews/7/draft": () =>
+        new Promise<StubReply>((resolve) => {
+          answer = resolve;
+        }),
+    });
+    renderApp("/reviews/7");
+
+    const drafting = (await screen.findByText(/AI is drafting your reply/)).closest(
+      '[role="status"]',
+    );
+    expect(drafting).toHaveTextContent(
+      "AI is drafting your reply... In the brand's tone. This takes a few seconds.",
+    );
+    answer({ status: 200, body: draft("Hi Sunita, sorry for the wait.") });
+    expect(await screen.findByLabelText(/Reply to/)).toHaveValue("Hi Sunita, sorry for the wait.");
+    expect(screen.queryByText(/AI is drafting/)).not.toBeInTheDocument();
+  });
+
   // AC-US-00-002-7: drafting unavailable, the manager writes by hand.
   it("budget stop: says drafting is unavailable and lets the manager write and save", async () => {
     let saved: Record<string, unknown> = {};
