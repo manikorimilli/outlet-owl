@@ -7,10 +7,15 @@ import { listReviews, reviewsLink } from "../reviews/api";
 import { dollars, getTaggingStatus } from "../status/api";
 import { getMovers, getTrends } from "./api";
 import { OutletComparison } from "./OutletComparison";
+import { RatingChart } from "./RatingChart";
+import { SentimentChart } from "./SentimentChart";
+import { StatTiles } from "./StatTiles";
+import { brandWeeks, weekStats } from "./summary";
 import { TableScroll } from "../../components/TableScroll";
 
 // OverviewPage is S-02: the week line, the top mover in one sentence, the
-// ranked movers, the week's urgent reviews and the outlet comparison.
+// ranked movers, the week's urgent reviews and the outlet comparison, with the
+// headline numbers and two 12 week charts drawn from the trends.
 export function OverviewPage() {
   const { session } = useSession();
   const me = session.status === "signed-in" ? session.me : null;
@@ -94,6 +99,9 @@ export function OverviewPage() {
   const m = movers.status === "ready" ? movers.data : null;
   const top = m?.movers[0];
   const s = status.status === "ready" ? status.data : null;
+  const weeks = trends.status === "ready" ? brandWeeks(trends.data) : null;
+  const latest = weeks?.[weeks.length - 1];
+  const scope = isAdmin ? "all outlets" : (me?.outlet?.name ?? "your outlet");
 
   return (
     <div className="content cols-2">
@@ -122,6 +130,26 @@ export function OverviewPage() {
           Movers and urgent reviews may be incomplete until tagging finishes; this page updates on
           reload.
         </p>
+      )}
+
+      {trends.status === "loading" && (
+        <span className="skeleton list-skeleton span-all" aria-hidden="true" />
+      )}
+      {weeks && latest && <StatTiles stats={weekStats(latest, weeks[weeks.length - 2])} />}
+
+      {weeks && (
+        <section aria-labelledby="sentiment-title">
+          <h2 id="sentiment-title">Sentiment by week</h2>
+          <p className="small muted">Reviews per week over 12 weeks, {scope}.</p>
+          <SentimentChart weeks={weeks} />
+        </section>
+      )}
+      {weeks && (
+        <section aria-labelledby="rating-title">
+          <h2 id="rating-title">Average rating</h2>
+          <p className="small muted">Out of 5, per week, {scope}.</p>
+          <RatingChart weeks={weeks} />
+        </section>
       )}
 
       <section aria-labelledby="movers-title">

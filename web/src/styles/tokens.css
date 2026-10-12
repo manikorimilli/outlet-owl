@@ -124,6 +124,13 @@
   --color-success-subtle: #e3f6eb; /* 5.9:1 with the success text */
   --color-neg: #a0450d; /* negative sentiment, burnt orange so it never reads as urgent red */
   --color-neg-subtle: #ffeee2; /* 5.5:1 with the neg text */
+  /* Overview charts, sentiment as a diverging set: two hues and a grey middle.
+     Checked with the dataviz validator: every pair apart for colour blind
+     readers, each 3:1 or more on white. */
+  --chart-pos: #2563eb;
+  --chart-neu: #8592ad;
+  --chart-neg: #a0450d;
+  --chart-grid: #e1e8f5;
   --color-neutral: #00053d; /* neutral sentiment and plain badges: navy on soft blue */
   --color-neutral-subtle: #e6f0fe;
 
