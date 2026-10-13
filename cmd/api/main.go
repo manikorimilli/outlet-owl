@@ -90,20 +90,19 @@ func run() error {
 
 	reports := dashboard.NewService(st, time.Now, cfg.BrandTimezone)
 	handler := httpapi.New(httpapi.Deps{
-		Logger:         logger,
-		DB:             st,
-		Auth:           auth.NewService(st, tokens),
-		Outlets:        outlets.NewService(st),
-		Imports:        imports.NewService(st, tagger),
-		Reviews:        reviews.NewService(st),
-		Replies:        replies.NewService(st, gw, replyPrompt, logger),
-		Dashboard:      reports,
-		Digests:        digest.NewService(st, reports, digest.SMTP{Addr: cfg.SMTPAddr, From: cfg.SMTPFrom}),
-		Status:         statusReader{Store: st, worker: tagger, gw: gw},
-		Brand:          httpapi.Brand{Name: cfg.BrandName, Timezone: cfg.BrandTimezone.String()},
-		WebDir:         webDir(logger, cfg.WebDir),
-		CookieSecure:   cfg.CookieSecure,
-		TrustedOrigins: cfg.TrustedOrigins,
+		Logger:       logger,
+		DB:           st,
+		Auth:         auth.NewService(st, tokens),
+		Outlets:      outlets.NewService(st),
+		Imports:      imports.NewService(st, tagger),
+		Reviews:      reviews.NewService(st),
+		Replies:      replies.NewService(st, gw, replyPrompt, logger),
+		Dashboard:    reports,
+		Digests:      digest.NewService(st, reports, digest.SMTP{Addr: cfg.SMTPAddr, From: cfg.SMTPFrom}),
+		Status:       statusReader{Store: st, worker: tagger, gw: gw},
+		Brand:        httpapi.Brand{Name: cfg.BrandName, Timezone: cfg.BrandTimezone.String()},
+		WebDir:       webDir(logger, cfg.WebDir),
+		CookieSecure: cfg.CookieSecure,
 	})
 	srv := &http.Server{
 		Addr:              cfg.Addr(),

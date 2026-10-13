@@ -1381,3 +1381,15 @@ input[type="file"]::file-selector-button {
     opacity: 1;
   }
 }
+
+/* ---------------------------------------------------------------- sign-in (S-01): the public demo note (ADR-0010) */
+.demo-note {
+  margin: 0;
+  background: var(--color-accent-subtle);
+  color: var(--color-text);
+  font-size: var(--text-label);
+}
+.demo-note code {
+  font-family: var(--font-mono);
+  font-weight: var(--weight-label);
+}

@@ -35,8 +35,6 @@ type Deps struct {
 	WebDir string
 	// CookieSecure marks the session cookie Secure and sends HSTS (ADR-0010).
 	CookieSecure bool
-	// TrustedOrigins pass the cross-site write check (ADR-0010).
-	TrustedOrigins []string
 }
 
 // New builds the HTTP handler. The chain, outermost first: request id, panic
@@ -72,7 +70,7 @@ func New(d Deps) http.Handler {
 	}
 
 	var handler http.Handler = mux
-	handler = middleware.CrossOrigin(logger, WriteError, d.TrustedOrigins...)(handler)
+	handler = middleware.CrossOrigin(logger, WriteError)(handler)
 	handler = middleware.SecurityHeaders(d.CookieSecure)(handler)
 	handler = middleware.RequestLog(logger)(handler)
 	handler = middleware.Recover(logger, WriteError)(handler)

@@ -58,8 +58,9 @@ Breaking one gets the change rejected, whatever else it does.
   is never rolled back. `MODEL_GATEWAY_MODE` defaults to `replay`, which
   answers only from `testdata/recordings` and spends nothing; `live` and
   `record` need `OPENROUTER_API_KEY` and spend real budget. `MODEL_ID` picks
-  the OpenRouter model; empty is Claude Haiku 4.5 (ADR-0009). `COOKIE_SECURE` and `TRUSTED_ORIGINS` are for the
-  HTTPS demo deployment only (ADR-0010); keep them off locally.
+  the OpenRouter model; empty is Claude Haiku 4.5 (ADR-0009). `COOKIE_SECURE` is for the HTTPS demo deployment
+  only (ADR-0010); keep it off locally. The steps are in
+  `docs/runbooks/deploy-azure.md`.
 - Demo data: `make seed` resets the domain tables, writes `users.json` (one
   brand admin, one manager per outlet, password `outletowl-demo` unless
   `SEED_PASSWORD` is set) and tags 1,500 reviews; it overwrites both.

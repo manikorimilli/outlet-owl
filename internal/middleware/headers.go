@@ -11,9 +11,10 @@ const apiCSP = "default-src 'none'; frame-ancestors 'none'"
 
 // pageCSP is for the built web app when this server serves it: its own
 // scripts, styles, fonts and images only. 'unsafe-inline' for styles covers
-// React's style attributes (the chart tooltips); no inline script is allowed.
+// React's style attributes (the chart tooltips); data: fonts are the small
+// font subsets Vite inlines. No inline script is allowed.
 const pageCSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
-	"img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; " +
+	"img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; " +
 	"base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 
 // SecurityHeaders sets the browser protections every response carries

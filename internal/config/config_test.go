@@ -2,7 +2,6 @@ package config
 
 import (
 	"log/slog"
-	"slices"
 	"strings"
 	"testing"
 
@@ -25,7 +24,6 @@ func setValidEnv(t *testing.T) {
 	t.Setenv("OPENROUTER_API_KEY", "")
 	t.Setenv("MODEL_RECORDINGS_DIR", "")
 	t.Setenv("COOKIE_SECURE", "")
-	t.Setenv("TRUSTED_ORIGINS", "")
 }
 
 func TestLoad(t *testing.T) {
@@ -271,36 +269,5 @@ func TestLoad_RejectsBadCookieSecure(t *testing.T) {
 	t.Setenv("COOKIE_SECURE", "yes please")
 	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "COOKIE_SECURE") {
 		t.Fatalf("err = %v, want a COOKIE_SECURE problem", err)
-	}
-}
-
-func TestLoad_TrustedOrigins(t *testing.T) {
-	cases := []struct {
-		name  string
-		value string
-		want  []string
-		bad   string
-	}{
-		{"unset", "", nil, ""},
-		{"one", "https://outletowl.vercel.app", []string{"https://outletowl.vercel.app"}, ""},
-		{"two with spaces", " https://a.vercel.app , https://b.example.in ", []string{"https://a.vercel.app", "https://b.example.in"}, ""},
-		{"a path is refused", "https://a.vercel.app/app", nil, "https://a.vercel.app/app"},
-		{"no scheme is refused", "a.vercel.app", nil, "a.vercel.app"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			setValidEnv(t)
-			t.Setenv("TRUSTED_ORIGINS", tc.value)
-			c, err := Load()
-			if tc.bad != "" {
-				if err == nil || !strings.Contains(err.Error(), tc.bad) {
-					t.Fatalf("err = %v, want it to name %q", err, tc.bad)
-				}
-				return
-			}
-			if err != nil || !slices.Equal(c.TrustedOrigins, tc.want) {
-				t.Fatalf("TrustedOrigins = %v, err %v; want %v", c.TrustedOrigins, err, tc.want)
-			}
-		})
 	}
 }

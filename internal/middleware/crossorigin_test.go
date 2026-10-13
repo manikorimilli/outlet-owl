@@ -19,7 +19,6 @@ type crossOriginCase struct {
 	host      string
 	fetchSite string
 	origin    string
-	trusted   []string
 	allowed   bool
 }
 
@@ -29,7 +28,7 @@ func serveCrossOrigin(t *testing.T, logger *slog.Logger, tc crossOriginCase) (ha
 		writtenCode = code
 		w.WriteHeader(status)
 	}
-	h := CrossOrigin(logger, writeErr, tc.trusted...)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	h := CrossOrigin(logger, writeErr)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		handlerRan = true
 		w.WriteHeader(http.StatusNoContent)
 	}))
@@ -59,13 +58,6 @@ func TestCrossOrigin(t *testing.T) {
 		{name: "CrossSitePutRefused", method: http.MethodPut, host: "localhost:8080", fetchSite: "cross-site", origin: "https://evil.example", allowed: false},
 		{name: "CrossSiteDeleteRefused", method: http.MethodDelete, host: "localhost:8080", fetchSite: "cross-site", origin: "https://evil.example", allowed: false},
 		{name: "MissingFetchSiteMismatchedOriginRefused", method: http.MethodPost, host: "localhost:8080", origin: "http://localhost:3000", allowed: false},
-		// The demo behind Vercel (ADR-0010): Vercel forwards /api with Host set
-		// to the Azure app, so a browser that sends no Sec-Fetch-Site shows an
-		// Origin that differs from Host. Only a trusted origin passes.
-		{name: "ProxyWithoutFetchSiteRefusedWhenNotTrusted", method: http.MethodPost, host: "outletowl.azurecontainerapps.io", origin: "https://outletowl.vercel.app", allowed: false},
-		{name: "ProxyWithoutFetchSiteAllowedWhenTrusted", method: http.MethodPost, host: "outletowl.azurecontainerapps.io", origin: "https://outletowl.vercel.app", trusted: []string{"https://outletowl.vercel.app"}, allowed: true},
-		{name: "ProxySameOriginAllowedWithoutTrust", method: http.MethodPost, host: "outletowl.azurecontainerapps.io", fetchSite: "same-origin", origin: "https://outletowl.vercel.app", allowed: true},
-		{name: "OtherSiteStillRefusedWhenOneIsTrusted", method: http.MethodPost, host: "outletowl.azurecontainerapps.io", fetchSite: "cross-site", origin: "https://evil.example", trusted: []string{"https://outletowl.vercel.app"}, allowed: false},
 		{name: "NoHeadersAllowed", method: http.MethodPost, host: "localhost:8080", allowed: true},
 		{name: "SafeMethodGetNeverRefused", method: http.MethodGet, host: "localhost:8080", fetchSite: "cross-site", origin: "https://evil.example", allowed: true},
 		{name: "SafeMethodHeadNeverRefused", method: http.MethodHead, host: "localhost:8080", fetchSite: "cross-site", origin: "https://evil.example", allowed: true},

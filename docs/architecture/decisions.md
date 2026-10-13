@@ -18,7 +18,7 @@ The technology key log is docs/decisions.md (kept by `tech-decision`); this file
 | ADR-0007 | Use a signed JWT in an HttpOnly cookie for sign-in | auth | Accepted | cheap: changes the sign-in handler and request check only |
 | ADR-0008 | Tag reviews and draft replies with prompt-only calls to Claude Haiku 4.5 | llm approach | Accepted | cheap: a new approach is a new prompt version and parser |
 | ADR-0009 | Allow one configured model in place of Claude Haiku 4.5 | llm approach | Accepted | cheap: unset MODEL_ID |
-| ADR-0010 | Deploy the public demo on Vercel and Azure Container Apps | deployment | Accepted | cheap: delete the resource group and the Vercel project |
+| ADR-0010 | Deploy the public demo as one container on Azure Container Apps | deployment | Accepted | cheap: delete the resource group |
 
 ## Conflicts that were settled
 
