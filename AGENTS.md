@@ -11,7 +11,7 @@ holds the documents and both apps (docs/architecture/repo-plan.json):
 
 | Part | Where | Stack |
 | --- | --- | --- |
-| Server | root: `cmd/api`, `internal/`, `db/` | Go 1.26.8, net/http, pgx, sqlc, goose, slog (ADR-0001, ADR-0003) |
+| Server | root: `cmd/api`, `internal/`, `db/` | Go 1.26.9, net/http, pgx, sqlc, goose, slog (ADR-0001, ADR-0003) |
 | Web app | `web/` | React 19, Vite 7, TypeScript; Vitest; built to static files the server serves (ADR-0002) |
 | API contract | `api/openapi.yaml` | REST, OpenAPI 3.1; the UI's types are generated from it (ADR-0005) |
 | Runtime services | `docker-compose.yml` | PostgreSQL 16 and MailHog, nothing else (PRD section 6) |
@@ -58,7 +58,9 @@ Breaking one gets the change rejected, whatever else it does.
   is never rolled back. `MODEL_GATEWAY_MODE` defaults to `replay`, which
   answers only from `testdata/recordings` and spends nothing; `live` and
   `record` need `OPENROUTER_API_KEY` and spend real budget. `MODEL_ID` picks
-  the OpenRouter model; empty is Claude Haiku 4.5 (ADR-0009).
+  the OpenRouter model; empty is Claude Haiku 4.5 (ADR-0009). `COOKIE_SECURE` is for the HTTPS demo deployment
+  only (ADR-0010); keep it off locally. The steps are in
+  `docs/runbooks/deploy-azure.md`.
 - Demo data: `make seed` resets the domain tables, writes `users.json` (one
   brand admin, one manager per outlet, password `outletowl-demo` unless
   `SEED_PASSWORD` is set) and tags 1,500 reviews; it overwrites both.
@@ -81,7 +83,7 @@ Breaking one gets the change rejected, whatever else it does.
   network), `make migrate`, `make sqlc`, `make web-api-types`, `make fix`,
   `make doctor`, `make seed`, `make eval` (needs the 100 labelled reviews; phase 7 LLD)
   and `make tone-check`.
-- Toolchain: Go 1.26.8; sqlc v1.31.1, goose v3.28.0, golangci-lint v2.13.2 and
+- Toolchain: Go 1.26.9; sqlc v1.31.1, goose v3.28.0, golangci-lint v2.13.2 and
   govulncheck v1.8.0 installed with `go install` into `$(go env GOPATH)/bin`
   (the Makefile puts it on PATH); Node 24 (`web/.nvmrc`, run `nvm use` in
   `web/`) with pnpm 12.9.1 through corepack.

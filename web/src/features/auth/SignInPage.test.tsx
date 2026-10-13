@@ -103,6 +103,21 @@ describe("SignInPage", () => {
     );
   });
 
+  it("a 429 too_many_attempts says how long to wait", async () => {
+    signedOutWithLogin(
+      errorReply(
+        429,
+        "too_many_attempts",
+        "Too many wrong passwords for this email. Try again in 15 minutes.",
+      ),
+    );
+    renderApp("/sign-in");
+
+    await fillAndSubmit();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Try again in 15 minutes.");
+  });
+
   it("expired=1 shows the session ended notice", async () => {
     stubFetch({ "GET /api/v1/me": unauthorized });
 

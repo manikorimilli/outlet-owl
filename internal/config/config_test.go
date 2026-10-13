@@ -23,6 +23,7 @@ func setValidEnv(t *testing.T) {
 	t.Setenv("MODEL_GATEWAY_MODE", "")
 	t.Setenv("OPENROUTER_API_KEY", "")
 	t.Setenv("MODEL_RECORDINGS_DIR", "")
+	t.Setenv("COOKIE_SECURE", "")
 }
 
 func TestLoad(t *testing.T) {
@@ -243,5 +244,30 @@ func TestLoad_ListensOnLoopbackByDefault(t *testing.T) {
 	t.Setenv("PORT", "9090")
 	if got, _ := Load(); got.Addr() != "0.0.0.0:9090" {
 		t.Fatalf("Addr = %q, want 0.0.0.0:9090", got.Addr())
+	}
+}
+
+func TestLoad_CookieSecureDefaultsOff(t *testing.T) {
+	cases := []struct {
+		value string
+		want  bool
+	}{{"", false}, {"false", false}, {"true", true}, {"1", true}}
+	for _, tc := range cases {
+		t.Run(tc.value, func(t *testing.T) {
+			setValidEnv(t)
+			t.Setenv("COOKIE_SECURE", tc.value)
+			c, err := Load()
+			if err != nil || c.CookieSecure != tc.want {
+				t.Fatalf("CookieSecure = %v, err %v; want %v", c.CookieSecure, err, tc.want)
+			}
+		})
+	}
+}
+
+func TestLoad_RejectsBadCookieSecure(t *testing.T) {
+	setValidEnv(t)
+	t.Setenv("COOKIE_SECURE", "yes please")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "COOKIE_SECURE") {
+		t.Fatalf("err = %v, want a COOKIE_SECURE problem", err)
 	}
 }

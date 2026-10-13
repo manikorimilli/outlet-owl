@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/manikorimilli/outlet-owl/internal/auth"
 )
@@ -131,6 +132,24 @@ func TestLoginHandler_SetsHttpOnlyStrictCookie(t *testing.T) {
 	}
 }
 
+func TestLoginHandler_SecureCookieAndHSTSWhenConfigured(t *testing.T) {
+	h := New(Deps{Logger: slog.New(slog.NewJSONHandler(io.Discard, nil)), DB: fakeDB{}, Auth: newFakeAuth(), Brand: testBrand, CookieSecure: true})
+
+	rec := do(h, loginRequestOf("arjun.mehta@example.in", "correct-horse"))
+
+	cookies := rec.Result().Cookies()
+	if rec.Code != http.StatusOK || len(cookies) != 1 || !cookies[0].Secure {
+		t.Fatalf("status %d, cookies %+v; want one Secure cookie", rec.Code, cookies)
+	}
+	if rec.Header().Get("Strict-Transport-Security") == "" || rec.Header().Get("X-Content-Type-Options") != "nosniff" {
+		t.Fatalf("headers = %v, want HSTS and nosniff", rec.Header())
+	}
+	out := do(h, request{method: http.MethodPost, path: "/api/v1/auth/logout"})
+	if c := out.Result().Cookies(); len(c) != 1 || !c[0].Secure {
+		t.Fatalf("logout cookies = %+v, want one Secure cookie", c)
+	}
+}
+
 func TestLoginHandler_TrimsEmail(t *testing.T) {
 	rec := do(authHandler(newFakeAuth(), nil), loginRequestOf("  arjun.mehta@example.in ", "correct-horse"))
 	if rec.Code != http.StatusOK {
@@ -198,6 +217,41 @@ func TestLoginHandler_TextPlainReturns415(t *testing.T) {
 
 	if body := decodeEnvelope(t, rec); rec.Code != http.StatusUnsupportedMediaType || body.Error.Code != "unsupported_media_type" {
 		t.Fatalf("got %d %q, want 415 unsupported_media_type", rec.Code, body.Error.Code)
+	}
+}
+
+func TestLoginHandler_LockedEmailReturns429WithRetryAfter(t *testing.T) {
+	cases := []struct {
+		name  string
+		wait  time.Duration
+		after string
+		words string
+	}{
+		{"whole lock", 15 * time.Minute, "900", "Try again in 15 minutes."},
+		{"last minute", 50 * time.Second, "50", "Try again in 50 seconds."},
+		{"just over a minute", 61 * time.Second, "61", "Try again in 2 minutes."},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			a := newFakeAuth()
+			a.err = &auth.TooManyAttemptsError{RetryAfter: tc.wait}
+
+			rec := do(authHandler(a, nil), loginRequestOf("arjun.mehta@example.in", "correct-horse"))
+
+			body := decodeEnvelope(t, rec)
+			if rec.Code != http.StatusTooManyRequests || body.Error.Code != "too_many_attempts" {
+				t.Fatalf("got %d %q, want 429 too_many_attempts", rec.Code, body.Error.Code)
+			}
+			if got := rec.Header().Get("Retry-After"); got != tc.after {
+				t.Fatalf("Retry-After = %q, want %q", got, tc.after)
+			}
+			if !strings.HasSuffix(body.Error.Message, tc.words) {
+				t.Fatalf("message = %q, want it to end %q", body.Error.Message, tc.words)
+			}
+			if len(rec.Result().Cookies()) != 0 {
+				t.Fatal("a locked sign-in set a cookie")
+			}
+		})
 	}
 }
 

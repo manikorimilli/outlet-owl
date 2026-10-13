@@ -1,0 +1,16 @@
+# The build needs go.mod, go.sum, cmd, internal, prompts, api and web (minus
+# its installs and builds); keep the context small and secrets out of it.
+.git
+.env
+.env.*
+users.json
+docs
+testdata
+bin
+.scratch
+.bearing
+*.test
+coverage.out
+web/node_modules
+web/dist
+web/coverage

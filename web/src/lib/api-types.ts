@@ -15,7 +15,7 @@ export interface paths {
     put?: never;
     /**
      * Sign in with email and password
-     * @description Checks the password against the bcrypt hash from the users file and sets the session cookie. A removed account and a wrong password get the same 401, so the response never says which emails exist.
+     * @description Checks the password against the bcrypt hash from the users file and sets the session cookie. A removed account and a wrong password get the same 401, so the response never says which emails exist. Five wrong passwords for one email within 15 minutes lock that email for 15 minutes (429 with Retry-After), whether or not the account exists.
      */
     post: operations["login"];
     delete?: never;
@@ -1333,7 +1333,7 @@ export interface operations {
       /** @description Signed in; the cookie is set */
       200: {
         headers: {
-          /** @description outletowl_session, HttpOnly, SameSite=Strict, Path=/, Max-Age=28800. */
+          /** @description outletowl_session, HttpOnly, SameSite=Strict, Path=/, Max-Age=28800; also Secure when the server runs with COOKIE_SECURE=true. */
           "Set-Cookie"?: string;
           "X-Request-Id": components["headers"]["XRequestId"];
           [name: string]: unknown;
@@ -1347,6 +1347,27 @@ export interface operations {
       403: components["responses"]["CrossSiteRequest"];
       415: components["responses"]["UnsupportedMediaType"];
       422: components["responses"]["ValidationFailed"];
+      /** @description Too many wrong passwords for this email; try again after Retry-After seconds */
+      429: {
+        headers: {
+          /** @description Seconds until this email may sign in again. */
+          "Retry-After"?: number;
+          "X-Request-Id": components["headers"]["XRequestId"];
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "too_many_attempts",
+           *         "message": "Too many wrong passwords for this email. Try again in 15 minutes.",
+           *         "request_id": "req_01J9Z7"
+           *       }
+           *     }
+           */
+          "application/json": components["schemas"]["Error"];
+        };
+      };
       500: components["responses"]["InternalError"];
     };
   };

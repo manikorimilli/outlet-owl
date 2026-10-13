@@ -54,6 +54,10 @@ type Config struct {
 	SMTPFrom string
 	// WebDir is the built web app the server serves (ADR-0002).
 	WebDir string
+	// CookieSecure marks the session cookie Secure and turns on HSTS; set it
+	// true wherever the app is reached over HTTPS (ADR-0010). Off by default
+	// because local runs use http://localhost.
+	CookieSecure bool
 }
 
 // Addr is the listen address, host and port.
@@ -122,6 +126,11 @@ func Load() (Config, error) {
 	c.SMTPAddr = envOr("SMTP_ADDR", "localhost:1025")
 	c.SMTPFrom = envOr("SMTP_FROM", "digest@outletowl.local")
 	c.WebDir = envOr("WEB_DIST", "web/dist")
+	if on, err := strconv.ParseBool(envOr("COOKIE_SECURE", "false")); err != nil {
+		problems = append(problems, "COOKIE_SECURE must be true or false")
+	} else {
+		c.CookieSecure = on
+	}
 	if len(problems) > 0 {
 		return Config{}, fmt.Errorf("config: %s", strings.Join(problems, "; "))
 	}

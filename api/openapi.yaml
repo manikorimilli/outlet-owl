@@ -74,7 +74,9 @@ paths:
       description: >-
         Checks the password against the bcrypt hash from the users file and sets the
         session cookie. A removed account and a wrong password get the same 401, so the
-        response never says which emails exist.
+        response never says which emails exist. Five wrong passwords for one email within
+        15 minutes lock that email for 15 minutes (429 with Retry-After), whether or not
+        the account exists.
       tags: [auth]
       x-story-ids: [US-00-001]
       x-error-codes: { '403': [cross_site_request] }
@@ -90,7 +92,7 @@ paths:
           description: Signed in; the cookie is set
           headers:
             Set-Cookie:
-              description: outletowl_session, HttpOnly, SameSite=Strict, Path=/, Max-Age=28800.
+              description: outletowl_session, HttpOnly, SameSite=Strict, Path=/, Max-Age=28800; also Secure when the server runs with COOKIE_SECURE=true.
               schema: { type: string }
             X-Request-Id: { $ref: '#/components/headers/XRequestId' }
           content:
@@ -101,6 +103,18 @@ paths:
         '403': { $ref: '#/components/responses/CrossSiteRequest' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429':
+          description: Too many wrong passwords for this email; try again after Retry-After seconds
+          x-error-codes: [too_many_attempts]
+          headers:
+            Retry-After:
+              description: Seconds until this email may sign in again.
+              schema: { type: integer, minimum: 1 }
+            X-Request-Id: { $ref: '#/components/headers/XRequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: { code: too_many_attempts, message: 'Too many wrong passwords for this email. Try again in 15 minutes.', request_id: req_01J9Z7 } }
         '500': { $ref: '#/components/responses/InternalError' }
 
   /auth/logout:
@@ -716,6 +730,7 @@ components:
         - { code: file_too_large, status: 413, meaning: "The CSV file is over 5 MB; split it into smaller files." }
         - { code: unsupported_media_type, status: 415, meaning: "The body is not application/json, or the import is not multipart/form-data." }
         - { code: validation_failed, status: 422, meaning: "A field breaks a rule (blank, too long, unknown theme); details names the field." }
+        - { code: too_many_attempts, status: 429, meaning: "Five wrong passwords for this email within 15 minutes; it is locked for 15 minutes. Retry-After gives the seconds left." }
         - { code: internal, status: 500, meaning: "Unexpected failure; quote request_id." }
         - { code: mail_unavailable, status: 502, meaning: "MailHog did not accept the digest; start MailHog and generate again with a new key." }
         - { code: budget_exhausted, status: 503, meaning: "The model budget is used up (over USD 8, or the provider's credit limit); drafting is unavailable, write the reply by hand." }

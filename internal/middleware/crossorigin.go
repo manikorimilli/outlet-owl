@@ -20,8 +20,9 @@ const crossSiteMessage = "This request came from another site and was refused. O
 //   - no Sec-Fetch-Site: refused when Origin's host differs from Host;
 //   - neither header (curl, tests): allowed.
 //
-// The UI is always same-origin: the Go binary serves it, and the Vite proxy
-// forwards the browser's Sec-Fetch-Site, Origin and Host unchanged.
+// The UI is always same-origin: the Go binary serves it (locally and on the
+// demo deployment, ADR-0010), and the Vite proxy forwards the browser's
+// Sec-Fetch-Site, Origin and Host unchanged.
 func CrossOrigin(logger *slog.Logger, writeError func(w http.ResponseWriter, r *http.Request, status int, code, message string)) func(http.Handler) http.Handler {
 	protection := http.NewCrossOriginProtection()
 	return func(next http.Handler) http.Handler {

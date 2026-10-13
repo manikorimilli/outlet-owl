@@ -28,6 +28,8 @@ to `manager5@example.in`, password `outletowl-demo`.
 
 - [Running OutletOwl locally](docs/runbooks/local-operations.md): setup,
   daily use, resetting data, model modes and fixes for common failures.
+- [Deploy the demo](docs/runbooks/deploy-azure.md): one container on Azure
+  Container Apps serving the web app and the API (ADR-0010).
 - [AGENTS.md](AGENTS.md): the working rules and every make target.
 - [Product](docs/product/PRD.md), [design](docs/design/review-intelligence-hld.md),
   [decisions](docs/architecture/decisions.md),

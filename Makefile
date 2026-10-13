@@ -204,7 +204,7 @@ sqlc: ## Regenerate typed queries into internal/store
 	sqlc generate && echo "sqlc: generated into internal/store"
 
 doctor: ## Environment diagnostics
-	@echo "go:            $$(command -v go >/dev/null && go version || echo 'missing (Go 1.26.8, see AGENTS.md)')"
+	@echo "go:            $$(command -v go >/dev/null && go version || echo 'missing (Go 1.26.9, see AGENTS.md)')"
 	@echo "node:          $$(command -v node >/dev/null && node --version || echo missing) (web/.nvmrc wants 24)"
 	@echo "pnpm:          $$(command -v $(PNPM) >/dev/null && $(PNPM) --version 2>/dev/null || echo missing)"
 	@echo "web deps:      $$([ -d $(WEB)/node_modules ] && echo installed || echo 'NOT INSTALLED (make setup)')"

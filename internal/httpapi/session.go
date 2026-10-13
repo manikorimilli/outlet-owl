@@ -20,27 +20,31 @@ type Authenticator interface {
 
 // setSessionCookie sets the session cookie for SessionTTL: HttpOnly so no
 // script reads it, SameSite=Strict so other sites never send it (ADR-0007).
-// No Secure flag: the product runs on http://localhost (PRD section 6).
-func setSessionCookie(w http.ResponseWriter, token string) {
+// Secure only when the deployment is reached over HTTPS (COOKIE_SECURE,
+// ADR-0010); local runs use http://localhost, where a Secure cookie would be
+// dropped by some browsers.
+func setSessionCookie(w http.ResponseWriter, token string, secure bool) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     sessionCookie,
 		Value:    token,
 		Path:     "/",
 		MaxAge:   int(auth.SessionTTL.Seconds()),
 		HttpOnly: true,
+		Secure:   secure,
 		SameSite: http.SameSiteStrictMode,
 	})
 }
 
 // clearSessionCookie tells the browser to drop the session cookie
 // (Max-Age=0). A copied token stays valid until it expires (ADR-0007).
-func clearSessionCookie(w http.ResponseWriter) {
+func clearSessionCookie(w http.ResponseWriter, secure bool) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     sessionCookie,
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
+		Secure:   secure,
 		SameSite: http.SameSiteStrictMode,
 	})
 }

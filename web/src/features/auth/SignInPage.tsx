@@ -1,3 +1,4 @@
+import { demoSignIn, noDemo } from "./demo";
 import { useId, useState, type FormEvent } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router";
 import { useSession } from "../../app/session-context";
@@ -45,7 +46,7 @@ function problemFor(err: ApiError): Problem {
     }
     return { kind: "form", message: err.message, requestId: err.requestId };
   }
-  if (err.code === "cross_site_request") {
+  if (err.code === "cross_site_request" || err.code === "too_many_attempts") {
     return { kind: "form", message: err.message, requestId: err.requestId };
   }
   return { kind: "form", message: serverMessage, requestId: err.requestId };
@@ -53,20 +54,21 @@ function problemFor(err: ApiError): Problem {
 
 // SignInPage is S-01: the brand is not named here (it is shown in the top bar
 // after sign-in, from GET /me), a decision recorded in the web LLD.
-// demoAccount fills the form with the seeded brand admin under the Vite dev
-// server only (make web-dev). Tests run in "test" mode and builds in
-// "production", so no bundle the Go binary serves ever carries it.
-const demoAccount =
-  import.meta.env.MODE === "development"
-    ? { email: "ritika.rao@example.in", password: "outletowl-demo" }
-    : null;
+// demo prefills the form for local dev and the public demo (demo.ts). The
+// condition is written with import.meta.env directly so Vite replaces it at
+// build time: a normal production build sees `false`, drops the call, and no
+// bundle without VITE_DEMO_PREFILL carries the demo password.
+const demo =
+  import.meta.env.MODE === "development" || import.meta.env.VITE_DEMO_PREFILL === "true"
+    ? demoSignIn(import.meta.env)
+    : noDemo;
 
 export function SignInPage() {
   const { session, signedIn } = useSession();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const [email, setEmail] = useState(demoAccount?.email ?? "");
-  const [password, setPassword] = useState(demoAccount?.password ?? "");
+  const [email, setEmail] = useState(demo.account?.email ?? "");
+  const [password, setPassword] = useState(demo.account?.password ?? "");
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<Problem>({ kind: "none" });
   const id = useId();
@@ -123,6 +125,13 @@ export function SignInPage() {
           <p className="muted">Movers, urgent reviews and reply drafts for every outlet.</p>
         </div>
         <form className="signin" onSubmit={submit}>
+          {demo.note && (
+            <p className="notice demo-note">
+              <strong>Demo.</strong> Sample data only. Every account uses the password{" "}
+              <code>{demo.account?.password}</code>; managers are manager1@example.in to
+              manager5@example.in.
+            </p>
+          )}
           {params.get("expired") === "1" && (
             <div className="notice warn" role="status">
               <p>

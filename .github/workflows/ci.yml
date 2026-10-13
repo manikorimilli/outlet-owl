@@ -5,7 +5,8 @@
 #
 # No model key exists in CI and openrouter.ai resolves to 0.0.0.0 in every
 # job, so nothing here can make a live model call (REQ-035, HLD section 12
-# phase 0). There are no deploy jobs: the product runs locally (PRD section 6).
+# phase 0). There are no deploy jobs: image.yml only publishes the demo image
+# (web app and API) (ADR-0010); deploying it is the operator's step.
 name: ci
 
 on:

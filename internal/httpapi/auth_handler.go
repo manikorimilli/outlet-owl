@@ -76,7 +76,7 @@ func login(d Deps) http.HandlerFunc {
 			return
 		}
 		middleware.SetUserID(r.Context(), user.ID)
-		setSessionCookie(w, token)
+		setSessionCookie(w, token, d.CookieSecure)
 		WriteJSON(w, http.StatusOK, newMe(user, d.Brand))
 	}
 }
@@ -106,9 +106,9 @@ func validateLogin(req loginRequest) error {
 
 // logout answers POST /api/v1/auth/logout (operationId logout): it clears the
 // cookie whether or not a session exists, so it is safe to repeat.
-func logout() http.HandlerFunc {
+func logout(d Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
-		clearSessionCookie(w)
+		clearSessionCookie(w, d.CookieSecure)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
