@@ -33,17 +33,22 @@ type Deps struct {
 	Brand     Brand
 	// WebDir is the built web app (web/dist); empty serves the API only.
 	WebDir string
+	// CookieSecure marks the session cookie Secure and sends HSTS (ADR-0010).
+	CookieSecure bool
+	// TrustedOrigins pass the cross-site write check (ADR-0010).
+	TrustedOrigins []string
 }
 
 // New builds the HTTP handler. The chain, outermost first: request id, panic
-// recovery, request log, the cross-origin write check, then the mux. The
-// check sits inside the request log so a refusal is logged with its 403.
+// recovery, request log, security headers, the cross-origin write check, then
+// the mux. The check sits inside the request log so a refusal is logged with
+// its 403; the headers sit outside it so a refusal carries them too.
 func New(d Deps) http.Handler {
 	logger := d.Logger
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/health", health(logger, d.DB))
 	mux.HandleFunc("POST /api/v1/auth/login", login(d))
-	mux.HandleFunc("POST /api/v1/auth/logout", logout())
+	mux.HandleFunc("POST /api/v1/auth/logout", logout(d))
 	mux.HandleFunc("GET /api/v1/me", me(d))
 	mux.HandleFunc("GET /api/v1/outlets", listOutlets(d))
 	mux.HandleFunc("POST /api/v1/outlets", createOutlet(d))
@@ -67,7 +72,8 @@ func New(d Deps) http.Handler {
 	}
 
 	var handler http.Handler = mux
-	handler = middleware.CrossOrigin(logger, WriteError)(handler)
+	handler = middleware.CrossOrigin(logger, WriteError, d.TrustedOrigins...)(handler)
+	handler = middleware.SecurityHeaders(d.CookieSecure)(handler)
 	handler = middleware.RequestLog(logger)(handler)
 	handler = middleware.Recover(logger, WriteError)(handler)
 	return middleware.RequestID(handler)

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -54,6 +55,14 @@ type Config struct {
 	SMTPFrom string
 	// WebDir is the built web app the server serves (ADR-0002).
 	WebDir string
+	// CookieSecure marks the session cookie Secure and turns on HSTS; set it
+	// true wherever the app is reached over HTTPS (ADR-0010). Off by default
+	// because local runs use http://localhost.
+	CookieSecure bool
+	// TrustedOrigins are extra origins whose writes pass the cross-site check
+	// (ADR-0010): the Vercel address, for browsers that send no
+	// Sec-Fetch-Site through the proxy. Empty by default.
+	TrustedOrigins []string
 }
 
 // Addr is the listen address, host and port.
@@ -122,10 +131,39 @@ func Load() (Config, error) {
 	c.SMTPAddr = envOr("SMTP_ADDR", "localhost:1025")
 	c.SMTPFrom = envOr("SMTP_FROM", "digest@outletowl.local")
 	c.WebDir = envOr("WEB_DIST", "web/dist")
+	if on, err := strconv.ParseBool(envOr("COOKIE_SECURE", "false")); err != nil {
+		problems = append(problems, "COOKIE_SECURE must be true or false")
+	} else {
+		c.CookieSecure = on
+	}
+	origins, bad := parseOrigins(os.Getenv("TRUSTED_ORIGINS"))
+	if bad != "" {
+		problems = append(problems, fmt.Sprintf("TRUSTED_ORIGINS has %q; use comma-separated origins like https://outletowl.vercel.app (scheme and host, no path)", bad))
+	}
+	c.TrustedOrigins = origins
 	if len(problems) > 0 {
 		return Config{}, fmt.Errorf("config: %s", strings.Join(problems, "; "))
 	}
 	return c, nil
+}
+
+// parseOrigins splits a comma-separated list of origins and checks each the
+// way net/http.CrossOriginProtection will, so a bad value stops the server at
+// start instead of at the first request. It returns the first bad value.
+func parseOrigins(list string) ([]string, string) {
+	var out []string
+	check := http.NewCrossOriginProtection()
+	for _, o := range strings.Split(list, ",") {
+		o = strings.TrimSpace(o)
+		if o == "" {
+			continue
+		}
+		if err := check.AddTrustedOrigin(o); err != nil {
+			return nil, o
+		}
+		out = append(out, o)
+	}
+	return out, ""
 }
 
 func envOr(key, def string) string {

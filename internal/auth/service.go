@@ -68,30 +68,41 @@ type UserStore interface {
 
 // Service signs people in and resolves the caller of each request.
 type Service struct {
-	store  UserStore
-	tokens *Tokens
+	store   UserStore
+	tokens  *Tokens
+	limiter *loginLimiter
 }
 
 // NewService builds the sign-in service.
 func NewService(store UserStore, tokens *Tokens) *Service {
-	return &Service{store: store, tokens: tokens}
+	return &Service{store: store, tokens: tokens, limiter: newLoginLimiter()}
 }
 
 // Login checks the password and returns the user and a new session token.
 // An unknown email still spends one bcrypt check, so it takes as long as a
-// wrong password.
+// wrong password. After MaxFailedLogins wrong passwords for one email it
+// returns a TooManyAttemptsError until the lock ends (T-01), checked before
+// any password work; unknown emails count too, so the lock never says
+// which emails exist.
 func (s *Service) Login(ctx context.Context, email, password string) (User, string, error) {
+	now := s.tokens.now()
+	if err := s.limiter.check(email, now); err != nil {
+		return User{}, "", err
+	}
 	rec, err := s.store.UserByEmail(ctx, email)
 	if errors.Is(err, ErrUserNotFound) {
 		CheckDummyPassword(password)
+		s.limiter.fail(email, now)
 		return User{}, "", ErrInvalidCredentials
 	}
 	if err != nil {
 		return User{}, "", fmt.Errorf("sign in: look up user: %w", err)
 	}
 	if !CheckPassword(rec.PasswordHash, password) {
+		s.limiter.fail(email, now)
 		return User{}, "", ErrInvalidCredentials
 	}
+	s.limiter.succeed(email)
 	token, err := s.tokens.Issue(rec.ID)
 	if err != nil {
 		return User{}, "", fmt.Errorf("sign in: %w", err)

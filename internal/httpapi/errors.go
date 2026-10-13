@@ -2,8 +2,12 @@ package httpapi
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
+	"math"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/manikorimilli/outlet-owl/internal/auth"
 	"github.com/manikorimilli/outlet-owl/internal/connector"
@@ -58,6 +62,7 @@ func writeDomainError(w http.ResponseWriter, r *http.Request, logger *slog.Logge
 	var conflict *replies.ConflictError
 	var badReply *replies.ValidationError
 	var bodyTooLarge *http.MaxBytesError
+	var locked *auth.TooManyAttemptsError
 	switch {
 	case errors.Is(err, errUnsupportedMediaType):
 		WriteError(w, r, http.StatusUnsupportedMediaType, "unsupported_media_type", "Send application/json.")
@@ -105,6 +110,10 @@ func writeDomainError(w http.ResponseWriter, r *http.Request, logger *slog.Logge
 		WriteError(w, r, http.StatusBadRequest, "malformed_request", "The request could not be read: "+malformed.reason+".")
 	case errors.As(err, &invalid):
 		WriteErrorDetails(w, r, http.StatusUnprocessableEntity, "validation_failed", invalid.message, invalid.details)
+	case errors.As(err, &locked):
+		w.Header().Set("Retry-After", strconv.Itoa(int(locked.RetryAfter.Seconds())))
+		WriteError(w, r, http.StatusTooManyRequests, "too_many_attempts",
+			fmt.Sprintf("Too many wrong passwords for this email. Try again in %s.", waitWords(locked.RetryAfter)))
 	case errors.Is(err, auth.ErrInvalidCredentials):
 		WriteError(w, r, http.StatusUnauthorized, "invalid_credentials", "That email and password do not match an account. Check both and try again.")
 	case errors.Is(err, auth.ErrUnauthenticated):
@@ -138,4 +147,17 @@ var conflictMessages = map[string]string{
 	"reply_changed":     "This reply changed since you opened it. Reload to see the newer text.",
 	"draft_in_progress": "The model is still drafting this reply. Wait a moment and reload.",
 	"already_replied":   "This reply is approved and its text can no longer change.",
+}
+
+// waitWords says a lock's remaining time as people say it: "15 minutes",
+// "1 minute", or "40 seconds" under a minute.
+func waitWords(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("%d seconds", int(d.Seconds()))
+	}
+	m := int(math.Ceil(d.Minutes()))
+	if m == 1 {
+		return "1 minute"
+	}
+	return fmt.Sprintf("%d minutes", m)
 }

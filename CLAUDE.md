@@ -7,7 +7,7 @@ Loaded into every session: keep this file short.
 
 ```
 Repository:   OutletOwl (Go server at the root, React web app in web/)
-Stack:        Go 1.26.8 + pgx + sqlc + goose; React 19 + Vite 7 + TypeScript
+Stack:        Go 1.26.9 + pgx + sqlc + goose; React 19 + Vite 7 + TypeScript
 Databases:    PostgreSQL 16 (Docker); MailHog for the digest
 Entrypoint:   cmd/api/main.go; web/src/main.tsx
 Run, test:    make dev, make web-dev; gate: make check

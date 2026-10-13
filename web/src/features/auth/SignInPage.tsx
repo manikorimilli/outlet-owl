@@ -45,7 +45,7 @@ function problemFor(err: ApiError): Problem {
     }
     return { kind: "form", message: err.message, requestId: err.requestId };
   }
-  if (err.code === "cross_site_request") {
+  if (err.code === "cross_site_request" || err.code === "too_many_attempts") {
     return { kind: "form", message: err.message, requestId: err.requestId };
   }
   return { kind: "form", message: serverMessage, requestId: err.requestId };

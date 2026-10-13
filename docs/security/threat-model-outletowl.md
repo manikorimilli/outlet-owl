@@ -4,6 +4,7 @@
 - Serves: US-00-001, US-00-002, US-00-003, US-01-002, US-02-001, ADR-0007, ADR-0008, ADR-0009
 - HLD: docs/design/review-intelligence-hld.md; diagram: none (no C4 file; boundaries below come from docker-compose.yml, cmd/api/main.go and the HLD)
 - Sensitive classes: auth, PII (reviewer names, staff emails), external input (CSV import, review text sent to a model)
+- Version: v2, 2026-10-13: T-01, T-06 and T-17 mitigated before the demo deployment (ADR-0010).
 - Author: unattributed, 2026-10-08, status Draft. Abuse-path pass: not run (the security-threat-model skill is not installed).
 
 Deployment today: one machine, local demo only (PRD section 6). Section 5 lists what must change before any shared or internet deployment.
@@ -52,14 +53,14 @@ Deployment today: one machine, local demo only (PRD section 6). Section 5 lists 
 
 | Id | Entry or boundary | Category | Threat | Likelihood | Impact | Mitigation | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T-01 | E1 | Spoofing | password guessing against a known staff email, with no limit on attempts | M | H | new story: limit failed sign-ins per email and per client address | unmitigated |
+| T-01 | E1 | Spoofing | password guessing against a known staff email, with no limit on attempts | M | H | five wrong passwords per email in 15 minutes lock it for 15 minutes, 429 with Retry-After, unknown emails included, internal/auth/service.go:89; per email only, not per client address, since behind Vercel and Azure the client address is a proxy's | mitigated |
 | T-02 | E1 | Information disclosure | timing of sign-in tells which emails have accounts | L | L | an unknown email still runs bcrypt against a dummy hash, internal/auth/password.go:60 | mitigated |
-| T-03 | E2, B1 | Spoofing | a forged token signed with another key or algorithm | L | H | only HS256 with the server secret verifies, internal/auth/token.go:69; secret of at least 32 bytes, internal/config/config.go:85 | mitigated |
-| T-04 | E2, B1 | Spoofing | a stolen cookie read by page script | L | H | HttpOnly and SameSite=Strict cookie, internal/httpapi/session.go:30 | mitigated |
+| T-03 | E2, B1 | Spoofing | a forged token signed with another key or algorithm | L | H | only HS256 with the server secret verifies, internal/auth/token.go:69; secret of at least 32 bytes, internal/config/config.go:101 | mitigated |
+| T-04 | E2, B1 | Spoofing | a stolen cookie read by page script | L | H | HttpOnly and SameSite=Strict cookie, internal/httpapi/session.go:32 | mitigated |
 | T-05 | E2, B1 | Spoofing | a copied token still works after sign-out or role change, for up to 8 h | M | M | role and active flag re-read on every request, internal/auth/service.go:107; sign-out does not revoke, accepted in ADR-0007 | mitigated |
-| T-06 | B1 | Information disclosure | the cookie travels in clear text over HTTP and has no Secure flag | M | H | new story: serve over HTTPS with a Secure cookie before any non-local deployment | planned |
-| T-07 | B1 | Spoofing | another device on the same network reaches the API, since it listens on all interfaces | M | H | listens on HOST, 127.0.0.1 by default, internal/config/config.go:66 | mitigated |
-| T-08 | E3 to E7 | Tampering | cross-site request forgery: another site makes the browser send a write | L | H | Go CrossOriginProtection refuses cross-site writes, internal/middleware/crossorigin.go:29; SameSite=Strict, internal/httpapi/session.go:31 | mitigated |
+| T-06 | B1 | Information disclosure | the cookie travels in clear text over HTTP and has no Secure flag | M | H | Secure cookie and HSTS when COOKIE_SECURE=true, internal/httpapi/session.go:33; the demo is reached only over HTTPS (Vercel, Azure Container Apps ingress), ADR-0010 | mitigated |
+| T-07 | B1 | Spoofing | another device on the same network reaches the API, since it listens on all interfaces | M | H | listens on HOST, 127.0.0.1 by default, internal/config/config.go:75 | mitigated |
+| T-08 | E3 to E7 | Tampering | cross-site request forgery: another site makes the browser send a write | L | H | Go CrossOriginProtection refuses cross-site writes, internal/middleware/crossorigin.go:39; SameSite=Strict, internal/httpapi/session.go:34 | mitigated |
 | T-09 | E5, B5 | Elevation of privilege | a manager reads another outlet's review, list, dashboard or theme counts by id or filter | M | H | every query ANDs all_outlets OR outlet_id, db/queries/reviews.sql:18, db/queries/dashboard.sql:18; scope from the re-read user, internal/auth/service.go:46 | mitigated |
 | T-10 | E6, B5 | Elevation of privilege | a manager drafts, edits or approves another outlet's reply | M | H | manager check before any write, internal/replies/service.go:144; writes bound to the outlet, db/queries/replies.sql:53 | mitigated |
 | T-11 | E3, E4, E7, B5 | Elevation of privilege | a manager adds outlets, imports reviews or sends the digest | M | M | brand admin checks, internal/imports/service.go:75, internal/outlets/service.go:115, internal/httpapi/digest_handler.go:38 | mitigated |
@@ -68,7 +69,7 @@ Deployment today: one machine, local demo only (PRD section 6). Section 5 lists 
 | T-14 | E5 | Tampering | SQL injection through search, filters or the cursor | L | H | sqlc parameterised queries; LIKE escaped, internal/reviews/service.go:127; cursor validated, internal/reviews/cursor.go:38 | mitigated |
 | T-15 | E5, E6, E8 | Tampering | stored XSS through a review text, reviewer name or reply | M | H | rendered as React text only, web/src/features/reply/ReviewPage.tsx:103; no innerHTML in web/src | mitigated |
 | T-16 | E8 | Information disclosure | path traversal through the static file handler reads files outside web/dist | L | H | path cleaned under the web root, internal/httpapi/web.go:22 | mitigated |
-| T-17 | E8 | Information disclosure | no security headers (nosniff, frame-ancestors, CSP), so the UI can be framed for clickjacking | L | M | new story: set X-Content-Type-Options, a frame-ancestors CSP and Referrer-Policy on every response | unmitigated |
+| T-17 | E8 | Information disclosure | no security headers (nosniff, frame-ancestors, CSP), so the UI can be framed for clickjacking | L | M | nosniff, X-Frame-Options DENY, Referrer-Policy and a CSP with frame-ancestors 'none' on every response, HSTS behind HTTPS, internal/middleware/headers.go:24 | mitigated |
 | T-18 | B7, E6 | Tampering | prompt injection in a review steers the drafted reply | M | M | review text cannot close its tag, internal/replies/message.go:45; the manager reads and edits every draft before approving, US-00-003 | mitigated |
 | T-19 | B7, E9 | Tampering | prompt injection in a review mis-tags itself or other reviews in the batch | M | M | review tags stripped, internal/tagging/message.go:41; answers validated per id in the batch, internal/tagging/parse.go:46 | mitigated |
 | T-20 | E6, E9, B3 | Denial of service | repeated draft requests or imports drain the model budget | M | M | every call reserves a worst-case cost against the USD 8 stop first, internal/gateway/gateway.go:132 | mitigated |
@@ -87,19 +88,16 @@ Deployment today: one machine, local demo only (PRD section 6). Section 5 lists 
 
 | Threat | Risk accepted or planned | Owner (role) | Revisit |
 | --- | --- | --- | --- |
-| T-01 | accepted while local only; must ship before any shared deployment | backend lead role | 2026-11-01 |
-| T-06 | planned before any non-local deployment | operator role | 2026-11-01 |
-| T-17 | accepted while local only | backend lead role | 2026-11-01 |
 | T-21 | planned: free models only for synthetic demo data | product owner role | 2026-10-15 |
-| T-23 | accepted for the demo seed; never seed a shared database | operator role | 2026-11-01 |
+| T-23 | accepted for the public demo by the owner on 2026-10-13: synthetic data, demo password on purpose, prefilled sign-in (ADR-0010); never for real data | operator role | 2026-11-01 |
 
-Before any shared or internet deployment: T-01, T-06, T-17 and T-23 must be closed, `JWT_SECRET` must come from a secret store, MailHog replaced by a real relay with auth, and MODEL_ID left empty or set to a paid model with a data agreement.
+Before any deployment with real data: T-23 must be closed (no known password), `JWT_SECRET` must come from a secret store, MailHog replaced by a real relay with auth, and MODEL_ID left empty or set to a paid model with a data agreement. The public demo (ADR-0010) uses synthetic data only, so T-21 and T-23 stay accepted there.
 
 ## 6. New stories needed
 
-- Limit failed sign-ins per email and per client address (mitigates T-01), acceptance: the sixth wrong password within 15 minutes answers 429 and a correct one is still refused until the window ends.
-- Serve over HTTPS with a Secure cookie before any non-local deployment (mitigates T-06), acceptance: the session cookie carries Secure and plain HTTP redirects to HTTPS.
-- Set X-Content-Type-Options, a frame-ancestors CSP and Referrer-Policy on every response (mitigates T-17), acceptance: every response carries the three headers and the UI cannot load in a frame.
+- Done in v2: limit failed sign-ins per email (mitigates T-01), acceptance: the sixth wrong password within 15 minutes answers 429 and a correct one is still refused until the window ends.
+- Done in v2: serve over HTTPS with a Secure cookie before any non-local deployment (mitigates T-06), acceptance: the session cookie carries Secure and plain HTTP redirects to HTTPS.
+- Done in v2: set X-Content-Type-Options, a frame-ancestors CSP and Referrer-Policy on every response (mitigates T-17), acceptance: every response carries the three headers and the UI cannot load in a frame.
 - Warn at start when MODEL_ID names a free model (mitigates T-21), acceptance: a `:free` model id logs a warning naming the data risk.
 - Refuse to seed when the environment is not local, or require SEED_PASSWORD (mitigates T-23), acceptance: a DATABASE_URL host other than localhost without SEED_PASSWORD stops the seed.
 
